@@ -8,18 +8,28 @@ Código del servidor que da soporte a las tres mejoras prioritarias de la app:
 
 | Archivo | Rol |
 |---|---|
-| `Setup.gs` | **Instalador.** `inicializarProyecto()` crea las 5 hojas + config + **roster real 2026 (15 personas)**. `resetearProyecto()` limpia datos. `diagnosticoProyecto()` verifica el estado. |
-| `Auth.gs` | `doGet`, `incluir`, sesión y rol efectivo. |
-| `Utils.gs` | Lectura/escritura de hojas, turno por fórmula, fechas, configuración y **dotación mínima**. |
-| `Solicitudes.gs` | Login, validación de saldos, crear/aprobar/rechazar, **doble confirmación** y **análisis de cobertura**. |
-| `Licencias.gs` | Registrar licencias y generar/asignar **turnos vacantes**. |
-| `Planilla.gs` | **Planilla mensual** (`obtenerPlanillaMes`) y **Reporte RRHH** (`obtenerDatosMes`) — leen de las hojas y arman la matriz visual y el consolidado de cambios/extras/reemplazos. |
+| `appsscript.json` | Manifiesto: zona horaria `America/Santiago`, runtime V8, config de la web app. |
+| `Setup.gs` | **Instalador.** `inicializarProyecto()` crea las 6 hojas + config + feriados 2026 + **roster real 2026 (15 personas)**. `resetearProyecto()` limpia datos. `diagnosticoProyecto()` verifica el estado. `corregirAcceso()` repara el acceso si tu cuenta quedó fuera. |
+| `Auth.gs` | `doGet`, **identidad de sesión** (`autoLogin`, `usuarioSesion_`, `aprobadorSesion_`). |
+| `Utils.gs` | Lectura/escritura de hojas **con caché por request**, turno por fórmula, fechas, feriados, configuración y **dotación mínima**. |
+| `Solicitudes.gs` | Validación de saldos, crear/aprobar/rechazar (con `LockService`), **doble confirmación** y **análisis de cobertura**. |
+| `Licencias.gs` | Registrar licencias y generar/asignar **turnos vacantes** (solo coordinadora). |
+| `Planilla.gs` | **Planilla mensual** (`obtenerPlanillaMes`) y **Reporte RRHH** (`obtenerDatosMes`). |
 | `Notificaciones.gs` | Emails: nueva solicitud, acuse, resolución y **confirmación al colega**. |
 | `Index.html` | Frontend (cliente): calendario, permisos, **Planilla**, **Reporte RRHH** y selector de paleta. |
 
-> En Apps Script todos los `.gs` comparten un mismo ámbito global. Por eso
-> `buscarUsuarioPorEmail()` y `esAprobador()` viven **solo** en `Solicitudes.gs`
-> (no las dupliques en `Auth.gs` o tendrás funciones repetidas).
+## Modelo de seguridad
+
+- **La identidad se deriva SIEMPRE en el servidor** con `Session.getActiveUser()`.
+  Ninguna función sensible acepta el ID del usuario desde el cliente: quién crea,
+  quién confirma, quién aprueba — todo sale de la sesión de Google.
+- **Convención:** las funciones que terminan en `_` son privadas del servidor.
+  Apps Script les bloquea la invocación remota vía `google.script.run`, así que
+  la superficie expuesta al navegador son solo las funciones sin sufijo.
+- Aprobar/rechazar solicitudes y asignar vacantes usan `LockService` + guard de
+  estado: aprobar dos veces no descuenta el saldo dos veces.
+- Las funciones de mantenimiento (`inicializarProyecto`, `resetearProyecto`,
+  `corregirAcceso`, …) exigen ejecutarse como propietario desde el editor.
 
 ## Hojas de cálculo requeridas (la fila 1 son las cabeceras exactas)
 
@@ -31,6 +41,8 @@ Fecha_Ingreso · Es_Subrogante_Activo · Etiqueta`
 > La columna **`Etiqueta`** (ej. `D MELO`) es el nombre corto que usa la Planilla
 > y el Reporte RRHH. `Turno_Base` define el bloque: `Equipo A/B/C/D` (rotación),
 > `Diurno Jefatura` (jornada/coordinación) o `Reemplazo 1/2` (Campos y Caamaño).
+> El **Email debe ser exactamente la cuenta Google** con la que la persona abre
+> la web app — el login es automático por sesión.
 
 **SOLICITUDES**
 `ID_Sol · Fecha_Solicitud · ID_Solicitante · Tipo_Sol · Fecha_Inicio ·
@@ -47,14 +59,22 @@ Turno_Ausencia · Fecha_Resolucion · ID_Aprobador · Nota_Resolucion`
 | `EMAIL_COORDINADORA` | coord@... | Destino de avisos de solicitud |
 | `DOTACION_MINIMA_LARGO` | `1` | Mínimo de kine presentes en turno Largo |
 | `DOTACION_MINIMA_NOCHE` | `1` | Mínimo de kine presentes en turno Noche |
+| `BASE_DATE_ROTACION` | `2026-03-05` | Día en que el Equipo A hace turno Largo (ancla de la rotación) |
 
-**LICENCIAS** *(nueva)*
+**LICENCIAS**
 `ID_Lic · ID_Usuario · Fecha_Inicio · Fecha_Fin · Folio · Tipo ·
 Observacion · Fecha_Registro · Dias`
 
-**VACANTES** *(nueva)*
+**VACANTES**
 `ID_Vac · ID_Lic · Fecha · Turno · Equipo · ID_Ausente · Estado ·
 ID_Cobertura · Fecha_Asignacion`
+
+**FERIADOS**  ·  columnas `Fecha · Nombre`
+
+> Fuente única de feriados para servidor y cliente: se **descuentan del cómputo
+> de días hábiles (FL/FF)** y pintan el calendario. El instalador siembra los de
+> 2026; **agrega los años siguientes directamente en esta hoja** (formato
+> `yyyy-MM-dd`).
 
 ## Planilla y Reporte RRHH (`Planilla.gs`)
 
@@ -63,6 +83,7 @@ para el equipo y para la secretaría que conserva el formato Excel clásico.
 
 **Planilla** (`obtenerPlanillaMes`): matriz mes × personas en el orden de la unidad
 (4 equipos + jornada/coordinación + 2 reemplazos), con líneas gruesas separando bloques.
+Los usuarios activos que no estén en el orden fijo se agregan al final.
 Prioridad de cada casilla:
 
 ```
@@ -74,6 +95,9 @@ Prioridad de cada casilla:
 6. Rotación matemática A/B/C/D → L / N / (libre)
 7. Jornada diurna L–V         → J
 ```
+
+> Los tipos se comparan normalizados (`tipoNorm_`): `CAMBIO_TURNO`, `CAMBIO` y
+> variantes cuentan como cambio en todas las vistas.
 
 **Reporte RRHH** (`obtenerDatosMes`): consolida los **cambios**, **turnos extra** y
 **reemplazos** aprobados del mes en tres tablas (formato del Word oficial), con una
@@ -92,8 +116,9 @@ Otros tipos:   Pendiente ──▶ Aprobado / Rechazado
 - **Pendiente Colega**: el receptor del trueque aún no confirma; no aparece en el panel admin.
 - Al **aprobar** se descuentan los saldos (FL/FF/ADM) y, si hay reemplazo, se
   registra un `TURNO_EXTRA` aprobado para el consolidado.
+- Solo se puede resolver una solicitud en estado **Pendiente** (idempotencia).
 
-## Lógica de cobertura (`analizarCoberturaSolicitud`)
+## Lógica de cobertura (`analizarCobertura_`)
 
 Para cada día de la solicitud que cae en turno de rotación (Largo/Noche):
 
@@ -111,18 +136,40 @@ Las jornadas diurnas L-V no afectan la rotación.
 ## Arranque rápido (para probar)
 
 1. Crea una **Google Sheet** nueva → menú **Extensiones → Apps Script**.
-2. En el editor, crea un archivo por cada `.gs` (mismo nombre, incluido `Planilla.gs`) y pega su contenido.
+2. En el editor: **Configuración del proyecto → marca "Mostrar el archivo de
+   manifiesto appsscript.json"** y pega el contenido de `appsscript.json`.
+3. Crea un archivo por cada `.gs` (mismo nombre) y pega su contenido.
    Crea un HTML llamado `Index` (sin extensión en el editor) y pega `Index.html`.
-3. Abre `Setup.gs` y reemplaza `EMAIL_COORDINADORA` y `EMAIL_KINE_PRUEBA` por los correos institucionales reales.
-4. Selecciona la función **`inicializarProyecto`** y pulsa **Ejecutar**. Autoriza permisos.
-   → Crea las 5 hojas con cabeceras, la `CONFIGURACION` y el **roster real 2026 (15 personas)**.
-5. **Implementar → Nueva implementación → App web** (ejecutar como tú; acceso según tu política) y abre la URL.
-6. Loguéate con el correo que pusiste en `EMAIL_KINE_PRUEBA` (kine) o `EMAIL_COORDINADORA` (admin).
+4. Abre `Setup.gs` y reemplaza `EMAIL_COORDINADORA` y `EMAIL_KINE_PRUEBA` por
+   **las cuentas Google exactas** con las que van a entrar (institucional o Gmail).
+5. Selecciona la función **`inicializarProyecto`** y pulsa **Ejecutar**. Autoriza permisos.
+   → Crea las 6 hojas con cabeceras, la `CONFIGURACION`, los **feriados 2026** y el
+   **roster real 2026 (15 personas)**.
+6. **Implementar → Nueva implementación → App web**:
+   - *Ejecutar como*: **Yo**
+   - *Quién tiene acceso*: **Cualquier usuario con cuenta de Google** (o tu dominio Workspace)
+7. Abre la **URL `/exec`** con la cuenta de `EMAIL_KINE_PRUEBA` (kine) o
+   `EMAIL_COORDINADORA` (admin). El login es automático.
+
+### Si ves "Sin acceso al sistema"
+
+La pantalla de error ahora muestra **qué cuenta detectó** el sistema:
+
+- **La cuenta no está registrada** → el email de esa cuenta no coincide con
+  ninguna fila de `USUARIOS`. Corrige el email en la hoja, o actualiza las
+  constantes de `Setup.gs` y ejecuta **`corregirAcceso()`** desde el editor
+  (la siembra no se repite con datos existentes, así que cambiar solo la
+  constante no basta).
+- **No se pudo detectar tu cuenta** → la implementación no entrega la sesión.
+  Verifica que el acceso sea "Cualquier usuario con cuenta de Google" (no
+  "Cualquier persona"/anónimo) y que estés abriendo la URL `/exec`, no `/dev`
+  de otra cuenta.
+- `diagnosticoProyecto()` te dice directamente si tu sesión está registrada.
 
 > **La planificación se construye desde la plataforma.** Las hojas `SOLICITUDES` y
 > `LICENCIAS` arrancan vacías; a medida que el equipo registra cambios, extras,
 > reemplazos y licencias, la Planilla y el Reporte RRHH se llenan solos. La rotación
-> base A/B/C/D la calcula la fórmula desde `BASE_DATE_ROTACION` (config, `2026-03-05`).
+> base A/B/C/D se calcula desde `BASE_DATE_ROTACION` (config, `2026-03-05`).
 
 Para repetir pruebas desde cero: ejecuta `resetearProyecto()` y luego `inicializarProyecto()`.
 Para revisar el estado: ejecuta `diagnosticoProyecto()` y mira el registro (Ver → Registros).

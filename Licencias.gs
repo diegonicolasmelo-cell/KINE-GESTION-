@@ -6,17 +6,15 @@
 // turnos VACANTES de rotación que quedan sin cubrir, para
 // que la coordinadora reasigne la cobertura.
 //
-// Hojas requeridas:
-//   LICENCIAS: ID_Lic | ID_Usuario | Fecha_Inicio | Fecha_Fin |
-//              Folio | Tipo | Observacion | Fecha_Registro | Dias
-//   VACANTES : ID_Vac | ID_Lic | Fecha | Turno | Equipo |
-//              ID_Ausente | Estado | ID_Cobertura | Fecha_Asignacion
+// Todas las operaciones de este módulo son de la coordinadora:
+// requieren aprobadorSesion_() (identidad derivada en servidor).
 // ============================================
 
 // --------------------------------------------
 // REGISTRAR LICENCIA + GENERAR VACANTES
 // --------------------------------------------
 function cargarLicencia(datos) {
+  if (!aprobadorSesion_()) return { exito: false, mensaje: "No tienes permisos para registrar licencias." };
   if (!datos || !datos.idUsuario || !datos.fechaInicio || !datos.fechaFin) {
     return { exito: false, mensaje: "❌ Completa profesional y fechas." };
   }
@@ -24,14 +22,14 @@ function cargarLicencia(datos) {
     return { exito: false, mensaje: "❌ La fecha de fin no puede ser anterior al inicio." };
   }
 
-  var usuarios = obtenerDatosHoja("USUARIOS");
+  var usuarios = obtenerDatosHoja_("USUARIOS");
   var u = usuarios.find(function(x) { return String(x.ID_Usuario) === String(datos.idUsuario); });
   if (!u) return { exito: false, mensaje: "❌ Profesional no encontrado." };
 
-  var idLic = generarID("LIC");
-  var dias = calcularDiasCorridos(datos.fechaInicio, datos.fechaFin);
+  var idLic = generarID_("LIC");
+  var dias = calcularDiasCorridos_(datos.fechaInicio, datos.fechaFin);
 
-  appendFilaPorClave("LICENCIAS", {
+  appendFilaPorClave_("LICENCIAS", {
     ID_Lic: idLic,
     ID_Usuario: datos.idUsuario,
     Fecha_Inicio: datos.fechaInicio,
@@ -45,16 +43,16 @@ function cargarLicencia(datos) {
 
   // Generar vacantes solo para los días de turno de rotación (Largo / Noche)
   var generadas = 0;
-  if (!esTurnoDiurno(u.Turno_Base)) {
-    var equipo = equipoDeUsuario(u.Turno_Base);
-    var fechas = rangoDeFechas(datos.fechaInicio, datos.fechaFin);
+  if (!esTurnoDiurno_(u.Turno_Base)) {
+    var equipo = equipoDeUsuario_(u.Turno_Base);
+    var fechas = rangoDeFechas_(datos.fechaInicio, datos.fechaFin);
     fechas.forEach(function(f) {
       var turno = getTurnoMatematico(f, equipo);
       if (turno === "Libre") return;
-      appendFilaPorClave("VACANTES", {
-        ID_Vac: generarID("VAC") + "-" + generadas,
+      appendFilaPorClave_("VACANTES", {
+        ID_Vac: generarID_("VAC") + "-" + generadas,
         ID_Lic: idLic,
-        Fecha: fechaISO(f),
+        Fecha: fechaISO_(f),
         Turno: turno,
         Equipo: equipo,
         ID_Ausente: datos.idUsuario,
@@ -76,9 +74,10 @@ function cargarLicencia(datos) {
 // LISTAR LICENCIAS (con conteo de vacantes)
 // --------------------------------------------
 function obtenerLicencias() {
-  var licencias = obtenerDatosHoja("LICENCIAS");
-  var usuarios = obtenerDatosHoja("USUARIOS");
-  var vacantes = obtenerDatosHoja("VACANTES");
+  if (!aprobadorSesion_()) return [];
+  var licencias = obtenerDatosHoja_("LICENCIAS");
+  var usuarios = obtenerDatosHoja_("USUARIOS");
+  var vacantes = obtenerDatosHoja_("VACANTES");
 
   var out = licencias.map(function(l) {
     var u = usuarios.find(function(x) { return String(x.ID_Usuario) === String(l.ID_Usuario); });
@@ -87,7 +86,7 @@ function obtenerLicencias() {
     return {
       ID_Lic: l.ID_Lic,
       Profesional: u ? (u.Nombre + " " + u.Apellido) : "Desconocido",
-      Equipo: u ? (equipoDeUsuario(u.Turno_Base) || (esTurnoDiurno(u.Turno_Base) ? "Diurno" : "-")) : "-",
+      Equipo: u ? (equipoDeUsuario_(u.Turno_Base) || (esTurnoDiurno_(u.Turno_Base) ? "Diurno" : "-")) : "-",
       Tipo: l.Tipo,
       Fecha_Inicio: l.Fecha_Inicio,
       Fecha_Fin: l.Fecha_Fin,
@@ -107,8 +106,9 @@ function obtenerLicencias() {
 // soloAbiertas = true → solo las que faltan por cubrir
 // --------------------------------------------
 function obtenerVacantes(soloAbiertas) {
-  var vacantes = obtenerDatosHoja("VACANTES");
-  var usuarios = obtenerDatosHoja("USUARIOS");
+  if (!aprobadorSesion_()) return [];
+  var vacantes = obtenerDatosHoja_("VACANTES");
+  var usuarios = obtenerDatosHoja_("USUARIOS");
 
   var lista = vacantes.filter(function(v) {
     return soloAbiertas ? String(v.Estado).toUpperCase() === "ABIERTA" : true;
@@ -142,36 +142,47 @@ function obtenerVacantes(soloAbiertas) {
 // ASIGNAR COBERTURA A UNA VACANTE
 // --------------------------------------------
 function asignarVacante(idVac, idCobertura) {
+  var apr = aprobadorSesion_();
+  if (!apr) return { exito: false, mensaje: "No tienes permisos." };
   if (!idCobertura) return { exito: false, mensaje: "Selecciona un colega para cubrir el turno." };
 
-  var vacantes = obtenerDatosHoja("VACANTES");
-  var vac = vacantes.find(function(v) { return String(v.ID_Vac) === String(idVac); });
-  if (!vac) return { exito: false, mensaje: "Vacante no encontrada." };
-
-  var ok = actualizarFilaPorClave("VACANTES", "ID_Vac", idVac, {
-    Estado: "Cubierta",
-    ID_Cobertura: idCobertura,
-    Fecha_Asignacion: new Date()
-  });
-  if (!ok) return { exito: false, mensaje: "No se pudo actualizar la vacante." };
-
-  // Registrar el turno extra para que aparezca en el consolidado de unidad
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { exito: false, mensaje: "Sistema ocupado, intenta de nuevo." };
   try {
-    appendFilaPorClave("SOLICITUDES", {
-      ID_Sol: generarID("EXT"),
-      Fecha_Solicitud: new Date(),
-      ID_Solicitante: idCobertura,
-      Tipo_Sol: "TURNO_EXTRA",
-      Fecha_Inicio: vac.Fecha,
-      Fecha_Fin: vac.Fecha,
-      Dias_Solicitados: 1,
-      ID_Reemplazante: vac.ID_Ausente,
-      Motivo: "Cobertura de licencia (" + vac.Turno + ", Eq " + vac.Equipo + ")",
-      Estado: "Aprobado",
-      Turno_Ausencia: vac.Turno,
-      Fecha_Resolucion: new Date()
+    var vacantes = obtenerDatosHoja_("VACANTES");
+    var vac = vacantes.find(function(v) { return String(v.ID_Vac) === String(idVac); });
+    if (!vac) return { exito: false, mensaje: "Vacante no encontrada." };
+    if (String(vac.Estado).toUpperCase() !== "ABIERTA") {
+      return { exito: false, mensaje: "Esta vacante ya fue cubierta." };
+    }
+
+    actualizarFilaPorClave_("VACANTES", "ID_Vac", idVac, {
+      Estado: "Cubierta",
+      ID_Cobertura: idCobertura,
+      Fecha_Asignacion: new Date()
     });
-  } catch (e) { Logger.log("Aviso turno extra: " + e.message); }
+
+    // Registrar el turno extra para que aparezca en el consolidado de unidad
+    try {
+      appendFilaPorClave_("SOLICITUDES", {
+        ID_Sol: generarID_("EXT"),
+        Fecha_Solicitud: new Date(),
+        ID_Solicitante: idCobertura,
+        Tipo_Sol: "TURNO_EXTRA",
+        Fecha_Inicio: vac.Fecha,
+        Fecha_Fin: vac.Fecha,
+        Dias_Solicitados: 1,
+        ID_Reemplazante: vac.ID_Ausente,
+        Motivo: "Cobertura de licencia (" + vac.Turno + ", Eq " + vac.Equipo + ")",
+        Estado: "Aprobado",
+        Turno_Ausencia: vac.Turno,
+        Fecha_Resolucion: new Date(),
+        ID_Aprobador: apr.ID_Usuario
+      });
+    } catch (e) { Logger.log("Aviso turno extra: " + e.message); }
+  } finally {
+    lock.releaseLock();
+  }
 
   return { exito: true, mensaje: "Cobertura asignada ✅" };
 }
