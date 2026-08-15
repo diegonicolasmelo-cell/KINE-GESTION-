@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KinesioTurno UCI</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+      /* Marca — la PALETA activa sobrescribe estas 4 variables en vivo */
+      --primary:    #4F46E5;
+      --primary-d:  #4338CA;
+      --largo:      #F59E0B;
+      --success:    #0EA372;
+
+      /* Compatibilidad con el resto de la app (no editar) */
+      --azul-boton:      var(--primary);
+      --color-dia:       var(--largo);
+      --color-noche:     var(--success);
+      --color-excepcion: #F5B945;
+      --rojo:            #E5484D;
+
+      /* Neutros fríos */
+      --color-fondo:     #F4F5F9;
+      --color-blanco:    #FFFFFF;
+      --texto-oscuro:    #1B1F31;
+      --texto-gris:      #868CA2;
+      --texto-claro:     #C4C8D6;
+      --borde-suave:     #EAECF3;
+      --color-libre:     #F4F5F9;
+
+      /* Sombras y radios */
+      --shadow-sm: 0 1px 2px rgba(20,24,40,.05), 0 2px 6px rgba(20,24,40,.05);
+      --shadow-md: 0 8px 22px rgba(20,24,40,.08);
+      --shadow-lg: 0 24px 50px rgba(20,24,40,.16);
+
+      --sidebar-width:   260px;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--color-fondo);
+      color: var(--texto-oscuro);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* LOGIN (Responsivo) */
+    #pantalla-login {
+      display:flex; align-items:center; justify-content:center;
+      height:100vh; background: linear-gradient(165deg, color-mix(in srgb, var(--primary) 10%, #fff) 0%, var(--color-fondo) 55%);
+      padding: 20px;
+    }
+    .login-box {
+      background: var(--color-blanco); padding: 44px 38px;
+      border-radius: 22px; border: 1px solid var(--borde-suave);
+      box-shadow: var(--shadow-lg);
+      width: 100%; max-width: 410px; text-align: center;
+    }
+    .login-logo {
+      width: 82px; height: 82px; border-radius: 22px;
+      object-fit: cover; margin: 0 auto 22px;
+      box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 28%, transparent);
+      background: var(--primary);
+    }
+    .login-box h2 { font-size: 25px; font-weight: 800; color: var(--texto-oscuro); margin-bottom: 5px; letter-spacing: -0.02em; }
+    .login-box .subtitulo { color: var(--texto-gris); font-size: 15px; font-weight: 600; margin-bottom: 30px; }
+    .login-box input {
+      width: 100%; padding: 16px;
+      border: 2px solid var(--borde-suave);
+      border-radius: 12px; font-size: 15px; margin-bottom: 16px;
+      outline: none; transition: 0.2s; font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .login-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 16%, transparent); }
+    .login-box button {
+      width: 100%; padding: 16px;
+      background: var(--azul-boton); color: white; border: none;
+      border-radius: 12px; font-size: 15px; font-weight: 800; letter-spacing: -0.01em;
+      cursor: pointer; transition: 0.2s; box-shadow: var(--shadow-md);
+    }
+    .login-box button:hover { background: var(--primary-d); transform: translateY(-2px); }
+    .login-error { color: var(--rojo); font-size: 14px; margin-top: 15px; display: none; font-weight: 700; }
+
+    /* Acceso demo (solo prototipo) */
+    .demo-hint { display:none; } /* GAS: demo UI desactivada */
+    .demo-hint p { font-size: 12px; font-weight: 800; color: var(--texto-gris); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .demo-chips { display: flex; gap: 10px; }
+    .demo-chip {
+      flex: 1; background: var(--color-fondo); border: 2px solid var(--borde-suave);
+      border-radius: 14px; padding: 10px 8px; cursor: pointer; transition: 0.2s; text-align: center;
+    }
+    .demo-chip:hover { border-color: var(--color-dia); background: #FFF9F0; transform: translateY(-2px); }
+    .demo-chip .dc-rol { font-size: 13px; font-weight: 800; color: var(--texto-oscuro); }
+    .demo-chip .dc-mail { font-size: 10px; font-weight: 700; color: var(--texto-gris); margin-top: 2px; }
+
+    /* LAYOUT PRINCIPAL */
+    #pantalla-app { display:none; }
+    .app { display:flex; min-height:100vh; }
+
+    /* SIDEBAR (Escritorio) - Ajustes más compactos */
+    .sidebar {
+      width: var(--sidebar-width); background: var(--color-blanco);
+      border-right: none; display: flex; flex-direction: column;
+      position: fixed; height: 100vh; z-index: 100; transition: transform 0.3s ease;
+      border-right: 1px solid var(--borde-suave); box-shadow: none;
+    }
+    .sidebar-header { padding: 30px 15px 15px; text-align: center; } /* Padding reducido */
+
+    .avatar-wrapper { position: relative; width: 75px; height: 75px; margin: 0 auto 12px; } /* Avatar más pequeño */
+    .sidebar-avatar {
+      width: 100%; height: 100%; border-radius: 18px;
+      background: color-mix(in srgb, var(--primary) 10%, #fff); border: 2px solid var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 800; color: var(--primary); overflow: hidden;
+      box-shadow: none;
+    }
+    .sidebar-avatar img { width: 100%; height: 100%; object-fit: cover; display: none; }
+
+    .sidebar-nombre { font-size: 16px; font-weight: 800; color: var(--texto-oscuro); line-height: 1.2; } /* Texto reducido */
+    .sidebar-rol {
+      display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.3px;
+      background: color-mix(in srgb, var(--primary) 11%, #fff); color: var(--primary);
+      padding: 4px 11px; border-radius: 8px; margin-top: 6px; text-transform: uppercase;
+    }
+
+    .sidebar-nav { flex: 1; padding: 10px 15px; overflow-y: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      cursor: pointer; font-size: 15px; font-weight: 800; color: var(--texto-gris);
+      border-radius: 11px; margin-bottom: 4px; transition: color 0.2s, transform 0.2s;
+    } /* Espaciado ajustado para ver más opciones */
+    .nav-item:hover { background: var(--color-fondo); color: var(--texto-oscuro); transform: translateX(2px); }
+    .nav-item.activo { background: var(--primary); color: white; box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 34%, transparent); }
+    .nav-item .icono { font-size: 20px; width: 22px; text-align: center; } /* Íconos más pequeños */
+
+    .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; margin-left:auto; background:var(--rojo); color:#fff; border-radius:10px; font-size:11px; font-weight:800; }
+    .sidebar-footer { padding: 15px; }
+    .btn-logout {
+      width: 100%; padding: 12px; background: #FFF0F3; color: var(--rojo);
+      border: none; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.3s;
+    }
+    .btn-logout:hover { background: var(--rojo); color: white; }
+
+    .mobile-header { display: none; }
+    .bottom-nav { display: none; }
+
+    /* MAIN CONTENT */
+    .contenido {
+      margin-left: var(--sidebar-width); flex: 1; padding: 40px;
+      max-width: 1500px; width: calc(100% - var(--sidebar-width));
+    }
+    .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 30px; gap: 15px; }
+    .page-header h2 { font-size: 30px; font-weight: 800; color: var(--texto-oscuro); }
+    .page-header p { font-size: 16px; font-weight: 600; color: var(--texto-gris); margin-top: 5px; }
+
+    .vista { display: none; }
+    .vista.activa { display: block; }
+    @media (prefers-reduced-motion: no-preference) {
+      .vista.activa { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    }
+    @keyframes popIn {
+      from { transform: scale(0.96) translateY(10px); }
+      to { transform: scale(1) translateY(0); }
+    }
+
+    .card {
+      background: var(--color-blanco); border-radius: 18px;
+      padding: 24px; border: 1px solid var(--borde-suave); box-shadow: var(--shadow-sm);
+      margin-bottom: 22px;
+    }
+    .card-titulo { font-size: 20px; font-weight: 800; color: var(--texto-oscuro); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+
+    /* CALENDARIO */
+    .cal-controls { display: flex; gap: 15px; align-items: center; }
+    .nav-mes {
+      display: flex; align-items: center; gap: 10px; background: var(--color-blanco);
+      padding: 6px 10px; border-radius: 14px; box-shadow: 0 4px 10px rgba(43, 54, 116, 0.05);
+    }
+    .nav-mes button {
+      background: var(--color-fondo); border: none; cursor: pointer;
+      font-size: 16px; padding: 6px 10px; border-radius: 10px; transition: 0.3s; color: var(--texto-oscuro);
+    }
+    .nav-mes button:hover { background: var(--primary); color: white; }
+    .nav-mes span { font-weight: 800; font-size: 15px; min-width: 130px; text-align: center; text-transform: capitalize; color: var(--azul-boton); }
+
+    .calendario-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+    .cal-header {
+      text-align: center; font-size: 13px; font-weight: 800; color: var(--texto-gris);
+      padding: 8px 0; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .cal-dia {
+      background: var(--color-fondo); border-radius: 12px; padding: 10px;
+      min-height: 100px; border: 2px solid transparent; cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;
+    }
+    .cal-dia:hover {
+      background: var(--color-blanco); border-color: var(--primary);
+      box-shadow: var(--shadow-md); transform: translateY(-2px); z-index: 10;
+    }
+    .cal-dia.vacio { background: transparent; border-color: transparent; cursor: default; }
+    .cal-dia.vacio:hover { transform: none; box-shadow: none; }
+    .cal-dia.hoy { border: 2px solid var(--primary); background: color-mix(in srgb, var(--primary) 7%, #fff); }
+    .cal-dia.hoy .cal-numero { color: var(--primary); font-size: 16px; }
+    .cal-numero {
+      font-size: 15px; font-weight: 800; margin-bottom: 6px; color: var(--texto-oscuro);
+      text-align: right; display: block;
+    }
+
+    .cal-turno {
+      border-radius: 8px; padding: 5px 8px; font-size: 12px; font-weight: 700;
+      color: white; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;
+    }
+    .turno-largo { background: var(--color-dia); }
+    .turno-noche { background: var(--color-noche); }
+    .turno-excepcion { background: var(--color-excepcion); color: var(--texto-oscuro); }
+
+    /* TABLAS MODERNAS */
+    .table-responsive { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0 8px; font-size: 14px; text-align: left; min-width: 600px; }
+    th { padding: 12px 15px; color: var(--texto-gris); font-weight: 800; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+    td { padding: 15px; background: var(--color-fondo); color: var(--texto-oscuro); font-weight: 600; }
+    td:first-child { border-top-left-radius: 14px; border-bottom-left-radius: 14px; }
+    td:last-child { border-top-right-radius: 14px; border-bottom-right-radius: 14px; }
+    tr:hover td { background: #E0F7FA; transform: scale(1.01); transition: 0.2s; }
+
+    .btn {
+      padding: 11px 18px; border-radius: 12px; font-size: 14px; font-weight: 700;
+      cursor: pointer; border: none; transition: 0.3s; display: inline-flex;
+      align-items: center; gap: 8px; text-decoration: none; font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .btn-primario { background: var(--primary); color: white; box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 28%, transparent); }
+    .btn-primario:hover { transform: translateY(-2px); box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 34%, transparent); }
+
+    .toggle-container {
+      display: flex; background: var(--color-fondo); border-radius: 14px;
+      padding: 4px; border: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .toggle-btn {
+      padding: 8px 16px; font-size: 13px; font-weight: 800; border: none;
+      background: transparent; border-radius: 10px; cursor: pointer; color: var(--texto-gris); transition: 0.3s; font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .toggle-btn.active { background: var(--color-blanco); color: var(--primary); box-shadow: var(--shadow-sm); }
+
+    .tabs {
+      display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid var(--borde-suave);
+      padding-bottom: 12px; overflow-x: auto;
+    }
+    .tab-btn {
+      padding: 8px 16px; font-size: 14px; font-weight: 800; color: var(--texto-gris);
+      background: var(--color-fondo); border-radius: 10px; border: none; cursor: pointer; white-space: nowrap; transition: 0.3s; font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .tab-btn.active { color: white; background: var(--primary); box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 28%, transparent); }
+
+    /* ==========================================
+       MEDIA QUERIES - DISEÑO RESPONSIVO MÓVIL
+       ========================================== */
+    @media (max-width: 900px) {
+      :root { --sidebar-width: 0px; }
+
+      .sidebar { transform: translateX(-100%); width: 260px; position: fixed; top: 0; left: 0; height: 100vh; display: none; }
+      .contenido { margin-left: 0; padding: 20px; padding-top: 85px; padding-bottom: 100px; width: 100%; max-width: 100%; }
+
+      .mobile-header {
+        display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 70px;
+        background: var(--color-blanco); z-index: 99; align-items: center;
+        justify-content: space-between; padding: 0 20px; box-shadow: 0 4px 15px rgba(43, 54, 116, 0.05); border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;
+      }
+      .mobile-brand { font-size: 20px; font-weight: 800; color: var(--azul-boton); display: flex; align-items: center; gap: 8px; }
+      .mobile-profile { display: flex; align-items: center; gap: 12px; }
+      .mobile-avatar-circle {
+        width: 40px; height: 40px; border-radius: 14px; background: #FFF9F0;
+        border: 2px solid var(--color-dia); display: flex; align-items: center;
+        justify-content: center; font-size: 15px; font-weight: 800; color: var(--color-dia); overflow: hidden;
+      }
+      .mobile-avatar-circle img { width: 100%; height: 100%; object-fit: cover; display: none; }
+      .mobile-nombre { font-size: 14px; font-weight: 800; color: var(--texto-oscuro); }
+
+      .bottom-nav {
+        display: flex; position: fixed; bottom: 0; left: 0; width: 100%; height: 80px;
+        background: var(--color-blanco); z-index: 100; box-shadow: 0 -10px 20px rgba(43, 54, 116, 0.05);
+        justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom);
+        border-top-left-radius: 25px; border-top-right-radius: 25px;
+      }
+      .bnav-item {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+        color: var(--texto-gris); text-decoration: none; border: none; background: transparent;
+        cursor: pointer; padding: 8px 5px; border-radius: 16px; flex: 1; text-align: center; max-width: 80px; transition: 0.3s;
+      }
+      .bnav-item .icono { font-size: 22px; transition: 0.3s; }
+      .bnav-item span:not(.icono) { font-size: 11px; font-weight: 700; }
+      .bnav-item.activo { color: var(--azul-boton); }
+      .bnav-item.activo .icono { transform: translateY(-4px); }
+
+      .page-header { flex-direction: column; align-items: flex-start; margin-bottom: 20px; }
+      .page-header h2 { font-size: 24px; }
+      .cal-controls { width: 100%; flex-wrap: wrap; }
+      .nav-mes { order: 1; width: 100%; justify-content: space-between; }
+      #admin-toggle-vista { order: 2; width: 100%; justify-content: center; margin-top: 15px; }
+      .toggle-btn { flex: 1; text-align: center; }
+
+      .card { padding: 15px; border-radius: 20px; }
+      .calendario-grid { gap: 6px; }
+      .cal-header { font-size: 11px; padding: 6px 0; }
+      .cal-dia { min-height: 70px; padding: 6px; border-radius: 12px; }
+      .cal-numero { font-size: 13px; margin-bottom: 5px; }
+      .cal-turno { padding: 3px 5px; font-size: 9px; border-radius: 6px; margin-bottom: 3px; gap: 3px; font-weight: 800; }
+      .icono-turno { display: none; }
+
+      .modal-content { padding: 25px !important; width: 95% !important; border-radius: 25px !important; }
+      #modal-aprobar .modal-content { width: 95% !important; padding: 25px !important; }
+      .col-2-mobile { grid-template-columns: 1fr !important; gap: 15px !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="mobile-header" id="mobile-header" style="display:none;">
+  <div class="mobile-brand">KinesioTurno</div>
+  <div class="mobile-profile">
+    <span class="mobile-nombre" id="m-header-nombre">...</span>
+    <div class="mobile-avatar-circle" id="m-avatar-container">
+      <span id="m-avatar-iniciales"></span>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav" id="bottom-nav" style="display:none;">
+  <button class="bnav-item activo" id="bnav-dashboard"><span class="icono">📅</span><span>Calendario</span></button>
+  <button class="bnav-item" id="bnav-solicitudes" style="position:relative;"><span class="icono">📋</span><span>Permisos</span><span id="badge-confirm-mob" class="nav-badge" style="display:none; position:absolute; top:4px; right:16px; margin-left:0;">0</span></button>
+  <button class="bnav-item" id="bnav-perfil"><span class="icono">👤</span><span>Perfil</span></button>
+  <button class="bnav-item" id="bnav-gestion"><span class="icono">📊</span><span>Reportes</span></button>
+  <button class="bnav-item" id="bnav-planilla"><span class="icono">🗓️</span><span>Planilla</span></button>
+  <button class="bnav-item" id="bnav-reporte"><span class="icono">📋</span><span>RRHH</span></button>
+  <button class="bnav-item" id="bnav-admin" style="display:none"><span class="icono">⚙️</span><span>Admin</span></button>
+</nav>
+
+<div id="pantalla-login">
+  <div class="login-box">
+    <div class="login-logo" style="display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:800; color:#fff; letter-spacing:-1px;">KT</div>
+    <h2>KinesioTurno UCI</h2>
+    <p class="subtitulo">Hospital San Pablo de Coquimbo</p>
+
+    <div id="login-loading" style="margin:16px 0;">
+      <div style="width:36px;height:36px;border:3px solid var(--borde-suave);border-top-color:var(--primary);border-radius:50%;animation:ktspin .8s linear infinite;margin:0 auto 14px;"></div>
+      <p id="login-status-txt" style="font-size:14px;font-weight:600;color:var(--texto-gris);">Verificando acceso…</p>
+    </div>
+    <div id="login-error" style="display:none;padding:14px;background:color-mix(in srgb,var(--rojo) 8%,#fff);border-radius:12px;border:1px solid color-mix(in srgb,var(--rojo) 22%,#fff);">
+      <p style="font-size:14px;font-weight:700;color:var(--rojo);margin-bottom:6px;">Sin acceso al sistema</p>
+      <p style="font-size:13px;color:var(--texto-gris);font-weight:600;">Tu cuenta Google no está registrada en la UCI.<br>Contacta a la coordinadora.</p>
+    </div>
+    <style>@keyframes ktspin{to{transform:rotate(360deg)}}</style>
+  </div>
+</div>
+
+<div id="pantalla-app">
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="avatar-wrapper">
+          <div class="sidebar-avatar" id="avatar-container">
+            <span id="avatar-iniciales"></span>
+          </div>
+        </div>
+        <div class="sidebar-nombre" id="sidebar-nombre">Cargando...</div>
+        <div class="sidebar-rol" id="sidebar-rol">...</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item activo" id="nav-dashboard"><span class="icono">📅</span> Calendario</div>
+        <div class="nav-item" id="nav-solicitudes"><span class="icono">📋</span> Mis Permisos <span id="badge-confirm-side" class="nav-badge" style="display:none;">0</span></div>
+        <div class="nav-item" id="nav-perfil"><span class="icono">👤</span> Mi Perfil</div>
+        <div class="nav-item" id="nav-gestion"><span class="icono">📊</span> Reportes</div>
+        <div class="nav-item" id="nav-planilla"><span class="icono">🗓️</span> Planilla</div>
+        <div class="nav-item" id="nav-reporte"><span class="icono">📋</span> Reporte RRHH</div>
+        <div class="nav-item" id="nav-admin" style="display:none"><span class="icono">⚙️</span> Administración</div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="btn-logout" id="btn-logout-side"><span class="icono">🚪</span> Cerrar Sesión</button>
+      </div>
+    </aside>
+
+    <main class="contenido">
+      <div class="vista activa" id="vista-dashboard">
+        <div class="page-header">
+          <div>
+            <h2>Calendario de Turnos</h2>
+            <p id="fecha-hoy">...</p>
+          </div>
+          <div class="cal-controls">
+            <div class="toggle-container" id="admin-toggle-vista" style="display:none;">
+              <button class="toggle-btn active" id="btn-vista-personal">Mi Equipo</button>
+              <button class="toggle-btn" id="btn-vista-global">Vista Global</button>
+            </div>
+            <div class="nav-mes">
+              <button id="btn-mes-ant">◀</button>
+              <span id="mes-actual">...</span>
+              <button id="btn-mes-sig">▶</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 22px; background:color-mix(in srgb, var(--largo) 13%, #fff); border:1px solid color-mix(in srgb, var(--largo) 22%, #fff); padding: 18px 24px; border-radius: 16px; box-shadow:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+             <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:13px; font-weight:800; color:var(--texto-gris); text-transform:uppercase; letter-spacing: 0.6px;">Turno de Mañana</span>
+                <div id="stat-turno-manana" style="font-size: 24px; font-weight:800; color:var(--color-dia);">Calculando...</div>
+             </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-titulo">
+            Planificación Mensual
+            <span style="font-size:13px; font-weight:700; color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, #fff); padding:8px 14px; border-radius:10px;">
+              Haz clic en un día para solicitar un permiso
+            </span>
+          </div>
+          <div id="calendario-container"><div style="padding:50px; text-align:center; font-weight:700; color:var(--texto-gris);">Cargando calendario…</div></div>
+        </div>
+      </div>
+
+      <div class="vista" id="vista-solicitudes">
+        <div class="page-header">
+          <div><h2>Mis Permisos</h2><p>Historial y estado de tus solicitudes</p></div>
+        </div>
+        <div class="card" id="card-confirmaciones" style="display:none; border:2px solid #80DEEA; background:#F0FCFD; box-shadow:0 10px 25px rgba(46,196,182,0.12);">
+          <div class="card-titulo" style="color:var(--color-noche);">🔄 Cambios que requieren tu confirmación</div>
+          <div id="lista-confirmaciones"></div>
+        </div>
+        <div class="card">
+          <div class="card-titulo">Historial Reciente</div>
+          <div id="lista-solicitudes"><div style="padding:50px; text-align:center; font-weight:700; color:var(--texto-gris);">Cargando historial...</div></div>
+        </div>
+      </div>
+
+      <div class="vista" id="vista-perfil">
+        <div class="page-header"><div><h2>Mi Perfil</h2><p>Información personal y laboral</p></div></div>
+        <div id="contenido-perfil"><div style="padding:50px; text-align:center; font-weight:700; color:var(--texto-gris);">Cargando perfil...</div></div>
+        <div class="card" id="logout-card-mobile" style="display:none; text-align:center;">
+          <button class="btn" style="background:var(--rojo); color:white; width: 100%; justify-content:center;" id="btn-logout-mobile">Cerrar Sesión Activa</button>
+        </div>
+      </div>
+
+      <div class="vista" id="vista-gestion">
+        <div class="page-header"><div><h2>Consolidado de Unidad</h2><p>Registro oficial de turnos, extras y modificaciones</p></div></div>
+        <div class="card">
+          <div class="table-responsive" id="tabla-gestion"><div style="padding:50px; text-align:center; font-weight:700; color:var(--texto-gris);">Cargando consolidado...</div></div>
+        </div>
+      </div>
+
+      <style>
+        .pl-scroll{ overflow-x:auto; border:2px solid #111; border-radius:10px; }
+        .pl-table{ border-collapse:collapse; font-size:12px; width:100%; }
+        .pl-table th,.pl-table td{ border:1px solid #c9cdd8; text-align:center; height:27px; min-width:27px; font-weight:600; color:#374151; }
+        .pl-nm{ min-width:118px; text-align:left; padding:0 9px; white-space:nowrap; position:sticky; left:0; z-index:1; border-right:2.5px solid #111; background:#eef0f6; font-weight:800; color:var(--texto-oscuro); }
+        thead .pl-nm{ background:var(--texto-oscuro); color:#fff; z-index:2; }
+        thead .pl-nm.sub{ background:#3a4256; font-size:10.5px; font-weight:700; color:#cfd4e2; }
+        .pl-d{ width:30px; background:#f4f5f9; color:#6b7280; font-weight:700; }
+        .pl-d.wk{ background:#e3e6ef; color:#374151; }
+        .pl-cd{ width:30px; }
+        .pl-cd.nota{ font-size:10px; font-weight:800; padding:0 5px; text-transform:uppercase; letter-spacing:.2px; }
+        .pl-row.fin td,.pl-row.fin th{ border-bottom:2.5px solid #111; }
+        .pl-table thead tr:last-child th{ border-bottom:2.5px solid #111; }
+        .pl-legend{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; font-size:12px; font-weight:600; }
+        .pl-lg{ display:flex; align-items:center; gap:7px; background:var(--color-fondo); border:1px solid var(--borde-suave); border-radius:9px; padding:6px 11px; }
+        .pl-sw{ width:18px; height:18px; border-radius:4px; border:1px solid #c9cdd8; display:inline-flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#374151; }
+        @media print {
+          @page { size: landscape; margin: 9mm; }
+          body * { visibility: hidden; }
+          #vista-planilla, #vista-planilla * { visibility: visible; }
+          #vista-planilla { position:absolute; left:0; top:0; width:100%; }
+          .sidebar, .mobile-header, .bottom-nav, .kt-fab, .kt-panel, .cal-controls, .page-header p { display:none !important; }
+          .contenido { margin:0 !important; padding:0 !important; }
+          #planilla-card { box-shadow:none !important; border:none !important; padding:0 !important; }
+          .pl-scroll{ overflow:visible !important; }
+        }
+      </style>
+      <div class="vista" id="vista-planilla">
+        <div class="page-header">
+          <div><h2>Planilla de Rotación</h2><p>Respaldo visual mensual · mismo formato del Excel para el equipo y la secretaría</p></div>
+          <div class="cal-controls">
+            <button class="btn btn-primario" style="background:var(--texto-oscuro);" onclick="window.print()">Imprimir / PDF</button>
+            <div class="nav-mes" style="gap:4px;">
+              <button onclick="cambiarAnioPlanilla(-1)" title="Año anterior" style="font-size:11px;padding:6px 8px;">◀◀</button>
+              <button onclick="cambiarMesPlanilla(-1)">◀</button>
+              <span id="pla-mes" style="min-width:120px;">...</span>
+              <button onclick="cambiarMesPlanilla(1)">▶</button>
+              <button onclick="cambiarAnioPlanilla(1)" title="Año siguiente" style="font-size:11px;padding:6px 8px;">▶▶</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" id="planilla-card">
+          <div id="planilla-container"><div style="padding:40px; text-align:center; font-weight:700; color:var(--texto-gris);">Generando planilla…</div></div>
+        </div>
+      </div>
+
+      <style>
+        .rpt-wrap{ max-width:860px; }
+        .rpt-title{ font-size:18px; font-weight:800; letter-spacing:-.02em; color:var(--texto-oscuro); margin-bottom:4px; }
+        .rpt-unit{ font-size:13px; font-weight:600; color:var(--texto-gris); margin-bottom:22px; }
+        .rpt-section{ margin-bottom:24px; }
+        .rpt-section h3{ font-size:14px; font-weight:800; color:var(--texto-oscuro); margin-bottom:8px; }
+        .rpt-table{ border-collapse:collapse; width:100%; font-size:13px; margin-bottom:4px; }
+        .rpt-table td{ vertical-align:top; padding:7px 11px; line-height:1.55; }
+        .rpt-table.cambios td{ border:1.5px solid #0C64C0; }
+        .rpt-table.cambios thead td{ background:#fff; font-weight:800; color:#0C64C0; }
+        .rpt-table.cambios tbody tr:nth-child(odd) td{ background:#EEF4FC; }
+        .rpt-table.extras td{ border:1.5px solid #0C882A; }
+        .rpt-table.extras thead td{ background:#fff; font-weight:800; color:#0C882A; }
+        .rpt-table.extras tbody tr:nth-child(odd) td{ background:#EDF7EF; }
+        .rpt-table.reemplazos td{ border:1.5px solid #7B2FA8; }
+        .rpt-table.reemplazos thead td{ background:#fff; font-weight:800; color:#7B2FA8; }
+        .rpt-table.reemplazos tbody tr:nth-child(odd) td{ background:#F5EEF8; }
+        .rpt-nm{ width:26%; font-weight:700; white-space:nowrap; }
+        .rpt-items ul{ margin:0; padding-left:16px; }
+        .rpt-items li{ margin-bottom:2px; }
+        .rpt-empty{ font-size:13px; color:var(--texto-gris); font-weight:600; padding:8px 0; }
+        @media print{
+          @page{ size:A4 portrait; margin:15mm; }
+          body *{ visibility:hidden; }
+          #vista-reporte,#vista-reporte *{ visibility:visible; }
+          #vista-reporte{ position:absolute; left:0; top:0; width:100%; }
+          .sidebar,.mobile-header,.bottom-nav,.kt-fab,.kt-panel,.page-header,.cal-controls{ display:none!important; }
+          .contenido{ margin:0!important; padding:0!important; }
+          .card{ box-shadow:none!important; border:none!important; padding:0!important; }
+        }
+      </style>
+      <div class="vista" id="vista-reporte">
+        <div class="page-header">
+          <div><h2>Reporte RRHH</h2><p>Cambios de turno · Turnos extra · Reemplazos UCI · formato oficial para Recursos Humanos</p></div>
+          <div class="cal-controls">
+            <button class="btn btn-primario" style="background:var(--texto-oscuro);" onclick="window.print()">Imprimir / PDF</button>
+            <div class="nav-mes" style="gap:4px;">
+              <button onclick="cambiarAnioReporte(-1)" title="Año anterior" style="font-size:11px;padding:6px 8px;">◀◀</button>
+              <button onclick="cambiarMesReporte(-1)">◀</button>
+              <span id="rpt-mes-lbl" style="min-width:120px;">...</span>
+              <button onclick="cambiarMesReporte(1)">▶</button>
+              <button onclick="cambiarAnioReporte(1)" title="Año siguiente" style="font-size:11px;padding:6px 8px;">▶▶</button>
+            </div>
+          </div>
+        </div>
+        <div class="card rpt-wrap" id="rpt-card">
+          <div id="rpt-container"><div style="padding:40px;text-align:center;font-weight:700;color:var(--texto-gris);">Generando reporte…</div></div>
+        </div>
+      </div>
+
+      <div class="vista" id="vista-admin">
+        <div class="page-header"><div><h2>Panel de Administración</h2><p>Gestión de equipo, solicitudes e internos</p></div></div>
+        <div class="card">
+          <div class="tabs">
+            <button class="tab-btn active" onclick="cambiarTabAdmin('pendientes', this)">Solicitudes Pendientes</button>
+            <button class="tab-btn" onclick="cambiarTabAdmin('licencias', this)">Licencias Médicas</button>
+            <button class="tab-btn" onclick="cambiarTabAdmin('internos', this)">Registro de Internos</button>
+          </div>
+
+          <div id="tab-pendientes">
+            <div class="table-responsive" id="tabla-admin"><div style="padding:50px; text-align:center; font-weight:700; color:var(--texto-gris);">Cargando panel...</div></div>
+          </div>
+          <div id="tab-licencias" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; gap:12px; flex-wrap:wrap;">
+              <p style="font-size:14px; font-weight:600; color:var(--texto-gris);">Al registrar una licencia, el sistema descuenta los turnos del profesional y genera automáticamente los turnos vacantes por cubrir.</p>
+              <button class="btn btn-primario" style="background:var(--color-noche); white-space:nowrap;" onclick="abrirModalLicencia()">+ Ingresar Licencia</button>
+            </div>
+            <h3 style="font-size:17px; font-weight:800; margin-bottom:14px; color:var(--texto-oscuro);">Licencias registradas</h3>
+            <div class="table-responsive" id="tabla-licencias"><div style="padding:30px; text-align:center; font-weight:700; color:var(--texto-gris);">Cargando...</div></div>
+            <h3 style="font-size:17px; font-weight:800; margin:28px 0 14px; color:var(--texto-oscuro);">🔴 Turnos vacantes por cubrir</h3>
+            <div id="lista-vacantes"><div style="padding:30px; text-align:center; font-weight:700; color:var(--texto-gris);">Cargando...</div></div>
+          </div>
+          <div id="tab-internos" style="display:none;">
+            <div style="padding:50px; text-align:center; color:var(--texto-gris);">
+              <h3 style="color:var(--texto-oscuro); font-weight:800; font-size:20px;">Registro de Internos</h3>
+              <p style="margin-top:10px; font-weight:600;">Tabla de control para alumnos en práctica y tutores.</p>
+              <br><button class="btn btn-primario" style="background:var(--color-noche);">+ Añadir Interno</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="modal-solicitud" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(43, 54, 116, 0.7); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center; padding: 20px;">
+  <div class="modal-content card" style="width:100%; max-width:480px; box-shadow:0 30px 60px rgba(0,0,0,0.3); margin-bottom: 0;">
+    <h3 style="margin-bottom:25px; font-size:24px; font-weight:800; color: var(--color-dia); text-align:center;">Nueva Solicitud ✨</h3>
+
+    <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Tipo de Permiso</label>
+    <select id="sol-tipo" onchange="verificarTipoSolicitud()" style="width:100%; padding:14px; margin-bottom:20px; border:2px solid var(--borde-suave); border-radius:16px; font-size:15px; font-weight:600; outline:none; background:white; font-family:'Plus Jakarta Sans', sans-serif;">
+      <option value="FL">Feriado Legal (FL) 🌴</option>
+      <option value="FF">Feriado Fraccionado (FF) ⛅</option>
+      <option value="ADM">Día Administrativo (ADM) 📝</option>
+      <option value="CAMBIO_TURNO">Cambio de Turno (Trueque) 🔄</option>
+      <option value="LICENCIA_MEDICA">Licencia Médica 🩹</option>
+      <option value="CAPACITACION">Capacitación 📚</option>
+    </select>
+
+    <div class="col-2-mobile" style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+      <div>
+        <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Fecha Inicio</label>
+        <input type="date" id="sol-inicio" style="width:100%; padding:14px; border:2px solid var(--borde-suave); border-radius:16px; outline:none; font-family: inherit; font-weight:600;">
+      </div>
+      <div>
+        <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Fecha Fin (Inclusive)</label>
+        <input type="date" id="sol-fin" style="width:100%; padding:14px; border:2px solid var(--borde-suave); border-radius:16px; outline:none; font-family: inherit; font-weight:600;">
+      </div>
+    </div>
+
+    <div id="seccion-trueque" style="display:none; background:#E0F7FA; padding:20px; border-radius:20px; border:2px solid #B2EBF2; margin-bottom:20px;">
+      <label style="font-size:14px; font-weight:800; color:var(--color-noche); display:block; margin-bottom:10px;">¿Con quién haces el intercambio?</label>
+      <select id="sol-reemplazo-id" style="width:100%; padding:12px; border:2px solid #80DEEA; border-radius:12px; outline:none; font-weight:600; font-family:'Plus Jakarta Sans', sans-serif;">
+        <option value="">Cargando colegas...</option>
+      </select>
+    </div>
+
+    <input type="hidden" id="sol-turno" value="Largo">
+
+    <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Motivo u Observaciones</label>
+    <textarea id="sol-motivo" rows="3" style="width:100%; padding:16px; margin-bottom:20px; border:2px solid var(--borde-suave); border-radius:16px; outline:none; font-family:inherit; font-weight:600; resize:none;" placeholder="Escribe aquí los detalles..."></textarea>
+
+    <div id="sol-mensaje" style="font-size:15px; font-weight:800; margin-bottom:20px; display:none; text-align:center; padding: 12px; border-radius: 12px; background: #FFF9F0;"></div>
+
+    <div style="display:flex; justify-content:flex-end; gap:12px; border-top: 2px dashed var(--borde-suave); padding-top: 20px;">
+      <button id="btn-cerrar-modal" class="btn" style="background:#F1F5F9; color:var(--texto-oscuro);">Cancelar</button>
+      <button id="btn-enviar-sol" class="btn btn-primario">Enviar Propuesta</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-aprobar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(43, 54, 116, 0.7); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center; padding:20px;">
+  <div class="modal-content card" style="width:100%; max-width:520px; max-height:90vh; overflow-y:auto; box-shadow:0 30px 60px rgba(0,0,0,0.3);">
+    <h3 style="margin-bottom:25px; font-size:24px; font-weight:800; color:var(--texto-oscuro);">✓ Procesar Solicitud</h3>
+
+    <div id="contenedor-turnos-perdidos" style="margin-bottom:20px; font-size: 15px; font-weight:600; color: var(--texto-gris);"></div>
+
+    <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Nota de Aprobación/Rechazo (Opcional)</label>
+    <textarea id="apr-nota" rows="3" placeholder="Añade un comentario..." style="width:100%; padding:16px; margin-bottom:25px; border:2px solid var(--borde-suave); border-radius:16px; outline:none; font-family:inherit; font-weight:600; resize:none;"></textarea>
+
+    <div style="display:flex; justify-content:flex-end; gap:12px; border-top: 2px dashed var(--borde-suave); padding-top: 20px;">
+      <button id="btn-cerrar-aprobar" class="btn" style="background:#F1F5F9; color:var(--texto-oscuro);">Cerrar</button>
+      <button id="btn-confirmar-aprobacion" class="btn btn-primario" style="background:var(--color-noche);">✓ Confirmar Aprobación</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-licencia" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(43, 54, 116, 0.7); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this) this.style.display='none';">
+  <div class="modal-content card" style="width:100%; max-width:480px; box-shadow:0 30px 60px rgba(0,0,0,0.3); margin-bottom:0; max-height:90vh; overflow-y:auto;">
+    <h3 style="margin-bottom:25px; font-size:24px; font-weight:800; color:var(--color-noche); text-align:center;">Ingresar Licencia Médica 🩹</h3>
+
+    <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Profesional</label>
+    <select id="lic-usuario" style="width:100%; padding:14px; margin-bottom:20px; border:2px solid var(--borde-suave); border-radius:16px; font-size:15px; font-weight:600; outline:none; background:white; font-family:'Plus Jakarta Sans', sans-serif;">
+      <option value="">Cargando...</option>
+    </select>
+
+    <div class="col-2-mobile" style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+      <div>
+        <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Fecha Inicio</label>
+        <input type="date" id="lic-inicio" style="width:100%; padding:14px; border:2px solid var(--borde-suave); border-radius:16px; outline:none; font-family:inherit; font-weight:600;">
+      </div>
+      <div>
+        <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Fecha Fin</label>
+        <input type="date" id="lic-fin" style="width:100%; padding:14px; border:2px solid var(--borde-suave); border-radius:16px; outline:none; font-family:inherit; font-weight:600;">
+      </div>
+    </div>
+
+    <div class="col-2-mobile" style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+      <div>
+        <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Folio</label>
+        <input type="text" id="lic-folio" placeholder="Nº folio" style="width:100%; padding:14px; border:2px solid var(--borde-suave); border-radius:16px; outline:none; font-family:inherit; font-weight:600;">
+      </div>
+      <div>
+        <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Tipo</label>
+        <select id="lic-tipo" style="width:100%; padding:14px; border:2px solid var(--borde-suave); border-radius:16px; font-size:15px; font-weight:600; outline:none; background:white; font-family:'Plus Jakarta Sans', sans-serif;">
+          <option value="Curativa">Curativa</option>
+          <option value="Maternal">Pre/Postnatal</option>
+          <option value="Accidente">Accidente laboral</option>
+          <option value="Patología embarazo">Patología del embarazo</option>
+          <option value="Enfermedad hijo&lt;1">Enfermedad grave hijo &lt;1</option>
+        </select>
+      </div>
+    </div>
+
+    <label style="font-size:14px; font-weight:800; color:var(--texto-oscuro); display:block; margin-bottom:8px;">Observación</label>
+    <textarea id="lic-obs" rows="2" placeholder="Detalle / diagnóstico reservado..." style="width:100%; padding:16px; margin-bottom:20px; border:2px solid var(--borde-suave); border-radius:16px; outline:none; font-family:inherit; font-weight:600; resize:none;"></textarea>
+
+    <div id="lic-mensaje" style="font-size:15px; font-weight:800; margin-bottom:20px; display:none; text-align:center; padding:12px; border-radius:12px; background:#FFF9F0;"></div>
+
+    <div style="display:flex; justify-content:flex-end; gap:12px; border-top:2px dashed var(--borde-suave); padding-top:20px;">
+      <button class="btn" style="background:#F1F5F9; color:var(--texto-oscuro);" onclick="document.getElementById('modal-licencia').style.display='none';">Cancelar</button>
+      <button id="btn-enviar-lic" class="btn btn-primario" style="background:var(--color-noche);" onclick="enviarLicencia()">Registrar licencia</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================
+// VARIABLES Y ESTADO GLOBALES
+// ==========================================
+var APP = {
+  usuario: null,
+  esAdmin: false,
+  modoVistaGlobal: false,
+  mesActual: new Date().getMonth(),
+  anioActual: new Date().getFullYear(),
+  meses: ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
+};
+var solicitudPendienteId = null;
+var EMAIL_PARAM = "";
+
+// DICCIONARIO DE FERIADOS CHILE (2026)
+var FERIADOS_CL = {
+  "2026-01-01": "Año Nuevo", "2026-04-03": "Viernes Santo", "2026-04-04": "Sábado Santo",
+  "2026-05-01": "Día del Trabajador", "2026-05-21": "Glorias Navales", "2026-06-21": "Pueblos Indígenas",
+  "2026-06-29": "San Pedro y San Pablo", "2026-07-16": "Virgen del Carmen", "2026-08-15": "Asunción de la Virgen",
+  "2026-09-18": "Independencia Nacional", "2026-09-19": "Glorias del Ejército", "2026-10-12": "Encuentro de 2 Mundos",
+  "2026-10-31": "Iglesias Evangélicas", "2026-11-01": "Todos los Santos", "2026-12-08": "Inmaculada Concepción",
+  "2026-12-25": "Navidad"
+};
+
+// ==========================================
+// FUNCIONES DE FORMATEO Y UTILIDADES
+// ==========================================
+function formFecha(f) {
+  if (!f) return "-";
+  try { var d = new Date(f); if (isNaN(d.getTime())) return "-"; return d.toLocaleDateString("es-CL", {timeZone:'UTC'}); } catch(e) { return "-"; }
+}
+function formFechaCorta(f) {
+  if (!f) return "-";
+  try { var d = new Date(f); if (isNaN(d.getTime())) return "-"; return d.toLocaleDateString("es-CL", {weekday:"short", day:"2-digit", month:"short", timeZone:'UTC'});
+  } catch(e) { return "-"; }
+}
+function getFeriado(anio, mes, dia) {
+  var f = anio + "-" + String(mes + 1).padStart(2, '0') + "-" + String(dia).padStart(2, '0');
+  return FERIADOS_CL[f] || null;
+}
+
+// ==========================================
+// INICIALIZACIÓN Y LOGIN
+// ==========================================
+window.addEventListener("load", function() {
+  checkResponsive();
+  window.addEventListener('resize', checkResponsive);
+
+
+
+  document.getElementById("btn-mes-ant").addEventListener("click", function(){ cambiarMes(-1); });
+  document.getElementById("btn-mes-sig").addEventListener("click", function(){ cambiarMes(1); });
+  document.getElementById("btn-vista-personal").addEventListener("click", function() { setModoVista(false); });
+  document.getElementById("btn-vista-global").addEventListener("click", function() { setModoVista(true); });
+
+  document.getElementById("nav-dashboard").addEventListener("click", function() { navegarA("dashboard", this); });
+  document.getElementById("nav-solicitudes").addEventListener("click", function() { navegarA("solicitudes", this); });
+  document.getElementById("nav-perfil").addEventListener("click", function() { navegarA("perfil", this); });
+  document.getElementById("nav-gestion").addEventListener("click", function() { navegarA("gestion", this); });
+  document.getElementById("nav-planilla").addEventListener("click", function() { navegarA("planilla", this); });
+  document.getElementById("nav-reporte").addEventListener("click", function() { navegarA("reporte", this); });
+  document.getElementById("nav-admin").addEventListener("click", function() { navegarA("admin", this); });
+
+  document.getElementById("bnav-dashboard").addEventListener("click", function() { navegarA("dashboard", this); });
+  document.getElementById("bnav-solicitudes").addEventListener("click", function() { navegarA("solicitudes", this); });
+  document.getElementById("bnav-perfil").addEventListener("click", function() { navegarA("perfil", this); });
+  document.getElementById("bnav-gestion").addEventListener("click", function() { navegarA("gestion", this); });
+  document.getElementById("bnav-planilla").addEventListener("click", function() { navegarA("planilla", this); });
+  document.getElementById("bnav-reporte").addEventListener("click", function() { navegarA("reporte", this); });
+  document.getElementById("bnav-admin").addEventListener("click", function() { navegarA("admin", this); });
+
+  document.getElementById("btn-logout-side").addEventListener("click", cerrarSesion);
+  document.getElementById("btn-logout-mobile").addEventListener("click", cerrarSesion);
+
+  document.getElementById("sol-inicio").addEventListener("change", detectarTurnoUsuario);
+  document.getElementById("btn-enviar-sol").addEventListener("click", enviarSolicitudForm);
+  document.getElementById("btn-confirmar-aprobacion").addEventListener("click", confirmarAprobacion);
+
+  // --- CERRAR MODALES NUEVA SOLICITUD ---
+  document.getElementById("btn-cerrar-modal").addEventListener("click", function(e) {
+    e.preventDefault();
+    document.getElementById("modal-solicitud").style.display = "none";
+  });
+  document.getElementById("modal-solicitud").addEventListener("click", function(e) {
+    if (e.target === this) this.style.display = "none";
+  });
+
+  // --- CERRAR MODALES APROBACIÓN ADMIN ---
+  document.getElementById("btn-cerrar-aprobar").addEventListener("click", function(e) {
+    e.preventDefault();
+    cerrarModalAprobar();
+  });
+  document.getElementById("modal-aprobar").addEventListener("click", function(e) {
+    if (e.target === this) cerrarModalAprobar();
+  });
+
+  // GAS: auto-auth via obtenerUsuarioActual() al cargar
+});
+
+function checkResponsive() {
+  var isMobile = window.innerWidth <= 900;
+  var isAppActive = document.getElementById("pantalla-app").style.display === "block";
+  if (isAppActive) {
+    document.getElementById("mobile-header").style.display = isMobile ? "flex" : "none";
+    document.getElementById("bottom-nav").style.display = isMobile ? "flex" : "none";
+    document.getElementById("logout-card-mobile").style.display = isMobile ? "block" : "none";
+  }
+}
+
+function autenticar(email) {
+  // Login manual por email (fallback). El acceso normal es automático
+  // vía la sesión de Google (ver bloque auto-auth al final).
+  if (typeof google === "undefined" || !google.script) return;
+  google.script.run
+    .withSuccessHandler(function(usuario) {
+      if (usuario && usuario.ID_Usuario) {
+        APP.usuario = usuario;
+        inicializarApp();
+      } else {
+        alert("No se encontró un usuario con ese correo.");
+      }
+    })
+    .withFailureHandler(function(err) {
+      alert("Error al iniciar sesión: " + (err && err.message ? err.message : err));
+    })
+    .buscarUsuarioPorEmail(email);
+}
+
+function inicializarApp() {
+  document.getElementById("pantalla-login").style.display = "none";
+  document.getElementById("pantalla-app").style.display = "block";
+  checkResponsive();
+
+  var nomArr = APP.usuario.Nombre.split(" ");
+  var apArr = APP.usuario.Apellido.split(" ");
+  var iniciales = (nomArr[0].charAt(0) + apArr[0].charAt(0)).toUpperCase();
+
+  var containerSide = document.getElementById("avatar-container");
+  var inicSide = document.getElementById("avatar-iniciales");
+  inicSide.innerText = iniciales;
+  if(APP.usuario.URL_Foto) {
+    var imgSide = document.createElement("img");
+    imgSide.src = APP.usuario.URL_Foto;
+    imgSide.style.display = "block";
+    containerSide.innerHTML = "";
+    containerSide.appendChild(imgSide);
+  } else {
+    inicSide.style.display = "block";
+  }
+
+  document.getElementById("sidebar-nombre").textContent = APP.usuario.Nombre + " " + APP.usuario.Apellido;
+  document.getElementById("sidebar-rol").textContent = APP.usuario.Rol;
+
+  document.getElementById("m-header-nombre").textContent = nomArr[0];
+  var containerMob = document.getElementById("m-avatar-container");
+  var inicMob = document.getElementById("m-avatar-iniciales");
+
+  inicMob.innerText = iniciales;
+  if(APP.usuario.URL_Foto) {
+    var imgMob = document.createElement("img");
+    imgMob.src = APP.usuario.URL_Foto;
+    imgMob.style.display = "block";
+    containerMob.innerHTML = "";
+    containerMob.appendChild(imgMob);
+  }
+
+  document.getElementById("fecha-hoy").textContent = new Date().toLocaleDateString("es-CL", {weekday:"long", year:"numeric", month:"long", day:"numeric"});
+
+  google.script.run.withSuccessHandler(function(esAdmin) {
+    APP.esAdmin = esAdmin;
+    if (esAdmin) {
+      document.getElementById("nav-admin").style.display = "flex";
+      document.getElementById("bnav-admin").style.display = "flex";
+      document.getElementById("admin-toggle-vista").style.display = "flex";
+      setModoVista(false);
+    }
+  }).esAprobador(APP.usuario.ID_Usuario);
+
+  actualizarMes();
+  calcularTurnoManana();
+  actualizarBadgeConfirmaciones();
+}
+
+function calcularTurnoManana() {
+  var stat = document.getElementById("stat-turno-manana");
+  if(!stat) return;
+
+  var manana = new Date();
+  manana.setDate(manana.getDate() + 1);
+  var year = manana.getFullYear();
+  var month = manana.getMonth();
+  var day = manana.getDate();
+  var dateStringManana = year + "-" + String(month + 1).padStart(2, '0') + "-" + String(day).padStart(2, '0');
+  var nombreFeriado = getFeriado(year, month, day);
+  var baseStr = String(APP.usuario.Turno_Base).toUpperCase();
+  var esDiurno = baseStr.includes("DIURNO") || baseStr.includes("JEFATURA") || baseStr.includes("ADMIN");
+
+  if (esDiurno) {
+      var diaSemana = manana.getDay();
+      var esHabil = (diaSemana !== 0 && diaSemana !== 6 && !nombreFeriado);
+
+      if (nombreFeriado) { stat.innerText = "Feriado"; stat.style.color = "var(--rojo)"; }
+      else if (esHabil) { stat.innerText = "Jornada L-V"; stat.style.color = "var(--color-noche)"; }
+      else { stat.innerText = "Libre"; stat.style.color = "var(--texto-gris)"; }
+  } else {
+      google.script.run.withSuccessHandler(function(tipoTurno) {
+          if (tipoTurno === "Largo") { stat.innerText = "Largo"; stat.style.color = "var(--color-dia)"; }
+          else if (tipoTurno === "Noche") { stat.innerText = "Noche"; stat.style.color = "var(--color-noche)"; }
+          else if (nombreFeriado) { stat.innerText = "Feriado"; stat.style.color = "var(--rojo)"; }
+          else { stat.innerText = "Libre"; stat.style.color = "var(--texto-gris)"; }
+      }).getTurnoMatematico(dateStringManana, APP.usuario.Turno_Base);
+  }
+}
+
+function navegarA(vista, elem) {
+  document.querySelectorAll(".vista").forEach(function(v) { v.classList.remove("activa"); });
+  document.querySelectorAll(".nav-item").forEach(function(n) { n.classList.remove("activo"); });
+  document.querySelectorAll(".bnav-item").forEach(function(n) { n.classList.remove("activo"); });
+
+  document.getElementById("vista-" + vista).classList.add("activa");
+  if (elem) {
+    if (elem.classList.contains("nav-item")) {
+       elem.classList.add("activo");
+       document.getElementById("bnav-" + vista).classList.add("activo");
+    } else if (elem.classList.contains("bnav-item")) {
+       elem.classList.add("activo");
+       document.getElementById("nav-" + vista).classList.add("activo");
+    }
+  }
+
+  if (vista === "solicitudes") cargarMisSolicitudes();
+  if (vista === "perfil") cargarPerfil();
+  if (vista === "gestion") cargarGestionTurnos();
+  if (vista === "planilla") cargarPlanilla();
+  if (vista === "reporte") cargarReporte();
+  if (vista === "admin") cargarAdmin();
+}
+
+function cerrarSesion() {
+  if (confirm("¿Estás seguro de que quieres cerrar la sesión?")) {
+     location.reload();
+  }
+}
+
+// ==========================================
+// CALENDARIO E INTERFAZ
+// ==========================================
+function cambiarMes(delta) {
+  APP.mesActual += delta;
+  if (APP.mesActual > 11) { APP.mesActual = 0; APP.anioActual++; }
+  else if (APP.mesActual < 0) { APP.mesActual = 11; APP.anioActual--; }
+  actualizarMes();
+}
+
+function setModoVista(esGlobal) {
+  APP.modoVistaGlobal = esGlobal;
+  document.getElementById("btn-vista-global").classList.toggle("active", esGlobal);
+  document.getElementById("btn-vista-personal").classList.toggle("active", !esGlobal);
+
+  var esDiurno = (APP.usuario && (String(APP.usuario.Turno_Base).toUpperCase().includes("DIURNO") || String(APP.usuario.Turno_Base).toUpperCase().includes("JEFATURA")));
+  document.getElementById("btn-vista-personal").innerText = esDiurno ? "Mi Jornada" : "Mi Equipo";
+
+  actualizarMes();
+}
+
+function actualizarMes() {
+  document.getElementById("mes-actual").textContent = APP.meses[APP.mesActual] + " " + APP.anioActual;
+  document.getElementById("calendario-container").innerHTML = '<div style="padding:50px; text-align:center; font-weight:700; color:var(--texto-gris);">Cargando turnos…</div>';
+  google.script.run
+    .withSuccessHandler(renderizarCalendario)
+    .withFailureHandler(function(err){ document.getElementById("calendario-container").innerHTML = "<div style='color:red;'>Error de servidor.</div>"; })
+    .obtenerTurnosMesSeguro(APP.anioActual, APP.mesActual + 1);
+}
+
+function renderizarCalendario(turnos) {
+  try {
+    var hoy = new Date();
+    var primerDia = new Date(APP.anioActual, APP.mesActual, 1).getDay();
+    var diasEnMes = new Date(APP.anioActual, APP.mesActual + 1, 0).getDate();
+    var porFecha = {};
+    var miEquipo = "";
+    var esDiurno = false;
+
+    if (APP.usuario && APP.usuario.Turno_Base) {
+       var baseStr = String(APP.usuario.Turno_Base).toUpperCase();
+       miEquipo = baseStr.replace("EQUIPO ", "").replace("EQUIPO", "").trim();
+       if (baseStr.includes("DIURNO") || baseStr.includes("JEFATURA") || baseStr.includes("ADMIN")) esDiurno = true;
+    }
+
+    turnos.forEach(function(t) {
+      if (!porFecha[t.Fecha]) porFecha[t.Fecha] = {Largo: null, Noche: null};
+      if (t.Tipo_Turno === "Largo") porFecha[t.Fecha].Largo = t.Equipo;
+      if (t.Tipo_Turno === "Noche") porFecha[t.Fecha].Noche = t.Equipo;
+    });
+
+    var html = '<div class="calendario-grid">';
+    ["D","L","M","M","J","V","S"].forEach(function(d) { html += '<div class="cal-header">'+d+'</div>'; });
+
+    for (var i = 0; i < primerDia; i++) html += '<div class="cal-dia vacio"></div>';
+
+    for (var dia = 1; dia <= diasEnMes; dia++) {
+      var esHoy = (dia === hoy.getDate() && APP.mesActual === hoy.getMonth() && APP.anioActual === hoy.getFullYear());
+      html += `<div class="cal-dia ${esHoy ? 'hoy' : ''}" onclick="abrirModalDia(${dia})">`;
+      html += `<span class="cal-numero">${dia}</span>`;
+
+      var nombreFeriado = getFeriado(APP.anioActual, APP.mesActual, dia);
+      if (nombreFeriado) {
+        html += `<div class="cal-turno" style="background:var(--rojo); color:white; border-radius:10px; font-size:11px;"><span class="icono-turno">🎉</span> ${window.innerWidth <= 900 ? 'F' : nombreFeriado}</div>`;
+      }
+
+      if (!APP.modoVistaGlobal) {
+        if (esDiurno) {
+          var dateObj = new Date(APP.anioActual, APP.mesActual, dia);
+          var diaSemana = dateObj.getDay();
+          var esDiaHabil = (diaSemana !== 0 && diaSemana !== 6 && !nombreFeriado);
+          if (esDiaHabil) html += `<div class="cal-turno" style="background:var(--color-noche); color:white; border-radius:10px;"><span class="icono-turno">🏫</span> Día</div>`;
+        } else {
+          if (porFecha[dia]) {
+            if (porFecha[dia].Largo === miEquipo) html += `<div class="cal-turno" style="background:var(--color-dia); color:white; border-radius:10px;"><span class="icono-turno">☀️</span> Largo</div>`;
+            if (porFecha[dia].Noche === miEquipo) html += `<div class="cal-turno" style="background:var(--azul-boton); color:white; border-radius:10px;"><span class="icono-turno">🌙</span> Noche</div>`;
+          }
+        }
+      } else {
+        if (porFecha[dia]) {
+          if (porFecha[dia].Largo) html += `<div class="cal-turno" style="background:var(--color-dia); color:white; border-radius:10px;"><span class="icono-turno">☀️</span> Eq ${porFecha[dia].Largo}</div>`;
+          if (porFecha[dia].Noche) html += `<div class="cal-turno" style="background:var(--azul-boton); color:white; border-radius:10px;"><span class="icono-turno">🌙</span> Eq ${porFecha[dia].Noche}</div>`;
+        }
+      }
+      html += '</div>';
+    }
+    document.getElementById("calendario-container").innerHTML = html + '</div>';
+  } catch (e) {
+    document.getElementById("calendario-container").innerHTML = '<div style="color:red; padding:20px;">Error dibujando: ' + e.message + '</div>';
+  }
+}
+
+// ==========================================
+// MODALES Y FORMULARIOS
+// ==========================================
+function abrirModalDia(dia) {
+  var d = new Date(APP.anioActual, APP.mesActual, dia);
+  var dateString = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+  abrirModalSolicitud();
+  document.getElementById("sol-inicio").value = dateString;
+  document.getElementById("sol-fin").value = dateString;
+  detectarTurnoUsuario();
+}
+
+function abrirModalSolicitud() {
+  document.getElementById("modal-solicitud").style.display = "flex";
+  document.getElementById("sol-mensaje").style.display = "none";
+  document.getElementById("sol-inicio").value = "";
+  document.getElementById("sol-fin").value = "";
+  document.getElementById("sol-motivo").value = "";
+  document.getElementById("sol-tipo").value = "FL";
+  verificarTipoSolicitud();
+}
+
+function verificarTipoSolicitud() {
+  var tipo = document.getElementById("sol-tipo").value;
+  document.getElementById("seccion-trueque").style.display = (tipo === "CAMBIO_TURNO") ? "block" : "none";
+
+  if (tipo === "CAMBIO_TURNO") {
+    document.getElementById("sol-reemplazo-id").innerHTML = '<option value="">Cargando...</option>';
+    google.script.run
+      .withSuccessHandler(function(colegas) {
+        var html = '<option value="">-- Selecciona un colega --</option>';
+        colegas.forEach(function(c) {
+          if(c.ID_Usuario !== APP.usuario.ID_Usuario) html += `<option value="${c.ID_Usuario}">${c.Nombre} ${c.Apellido} (${c.Turno_Base})</option>`;
+        });
+        document.getElementById("sol-reemplazo-id").innerHTML = html;
+      })
+      .obtenerListaKines();
+  }
+}
+
+function detectarTurnoUsuario() {
+  var fecha = document.getElementById("sol-inicio").value;
+  var turnoBase = APP.usuario.Turno_Base;
+  if (!fecha || !turnoBase || turnoBase.toUpperCase().includes("DIURNO")) return;
+  google.script.run
+    .withSuccessHandler(function(tipoTurno) {
+      document.getElementById("sol-turno").value = tipoTurno || "Largo";
+    })
+    .getTurnoMatematico(fecha, turnoBase);
+}
+
+function enviarSolicitudForm() {
+    var tipo = document.getElementById("sol-tipo").value;
+    var inicio = document.getElementById("sol-inicio").value;
+    var fin = document.getElementById("sol-fin").value;
+    var turnoJornada = document.getElementById("sol-turno").value;
+    var motivo = document.getElementById("sol-motivo").value.trim();
+    var reemplazoId = document.getElementById("sol-reemplazo-id").value;
+    var msgDiv = document.getElementById("sol-mensaje");
+    var btn = document.getElementById("btn-enviar-sol");
+
+    if (!inicio || !fin) { msgDiv.style.color = "var(--rojo)"; msgDiv.innerText = "❌ Debes seleccionar las fechas."; msgDiv.style.display = "block"; return; }
+    if (tipo === "CAMBIO_TURNO" && !reemplazoId) { msgDiv.style.color = "var(--rojo)"; msgDiv.innerText = "❌ Selecciona un colega."; msgDiv.style.display = "block"; return; }
+
+    btn.innerText = "Enviando..."; btn.disabled = true; msgDiv.style.display = "none";
+    var datos = { idUsuario: APP.usuario.ID_Usuario, tipo: tipo, fechaInicio: inicio, fechaFin: fin, turno: turnoJornada, motivo: motivo, idReemplazo: reemplazoId };
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.innerText = "Enviar Propuesta"; btn.disabled = false;
+        msgDiv.style.display = "block";
+        if (res.exito) {
+          msgDiv.style.color = "var(--color-noche)"; msgDiv.innerText = "¡Propuesta enviada con éxito! ✨";
+          setTimeout(function() {
+            document.getElementById("modal-solicitud").style.display = "none";
+            if(document.getElementById("vista-solicitudes").classList.contains("activa")) cargarMisSolicitudes();
+          }, 2000);
+        } else { msgDiv.style.color = "var(--rojo)"; msgDiv.innerText = res.mensaje; }
+      })
+      .withFailureHandler(function(err) { btn.innerText = "Enviar Propuesta"; btn.disabled = false; msgDiv.style.display = "block"; msgDiv.style.color = "var(--rojo)"; msgDiv.innerText = "Error crítico."; })
+      .crearSolicitud(datos);
+}
+
+// ==========================================
+// VISTAS Y DATOS (PERFIL, GESTIÓN, ADMIN)
+// ==========================================
+function cargarPerfil() {
+  var u = APP.usuario;
+  var badgeSubrogante = (u.Es_Subrogante_Activo === "TRUE" || u.Es_Subrogante_Activo === true) ?
+  `<span style="background:var(--color-excepcion); color:var(--texto-oscuro); padding:6px 12px; border-radius:14px; font-size:12px; font-weight:800; margin-left:8px;">Subrogancia Activa</span>` : '';
+  var fechaIngresoTxt = "No registrada";
+  if (u.Fecha_Ingreso) { try { var d = new Date(u.Fecha_Ingreso); if(!isNaN(d.getTime())) fechaIngresoTxt = d.toLocaleDateString("es-CL"); } catch(e) {} }
+  var urlFoto = u.URL_Foto || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.Nombre + " " + u.Apellido)}&background=4F46E5&color=FFF&size=128&bold=true`;
+
+  var html = `
+    <div class="card" style="text-align:center; position:relative; padding-top:50px; margin-bottom:25px; overflow:hidden;">
+      <div style="position:absolute; top:0; left:0; width:100%; height:120px; background:linear-gradient(135deg, var(--color-dia), var(--color-noche));"></div>
+      <img src="${urlFoto}" style="width:140px; height:140px; border-radius:35px; object-fit:cover; border:6px solid var(--color-blanco); box-shadow:0 15px 25px rgba(0,0,0,0.1); position:relative; z-index:1; background:var(--color-blanco);">
+      <h2 style="color:var(--texto-oscuro); margin-top:20px; margin-bottom:5px; font-size:26px; font-weight:800;">${u.Nombre} ${u.Apellido} ${badgeSubrogante}</h2>
+      <p style="color:var(--texto-gris); font-size:15px; font-weight:700; text-transform:uppercase; letter-spacing:1px;">${u.Rol} | INDEFINIDO</p>
+    </div>
+
+    <div class="card" style="margin-bottom:25px;">
+      <div class="card-titulo">Días Disponibles</div>
+      <div style="display:flex; flex-wrap:wrap; gap:15px; background:#FFF9F0; border:2px dashed #FFE0B2; border-radius:20px; padding:25px; justify-content:space-around; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+          <span style="font-size:15px; font-weight:800; color:#E68A00;">FL (Feriado Legal)</span>
+          <span style="font-size:30px; font-weight:800; color:var(--color-dia); background:white; padding:8px 25px; border-radius:18px; box-shadow:0 5px 15px rgba(255,159,28,0.15);">${u.FL_Disponibles || 0}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+          <span style="font-size:15px; font-weight:800; color:#E68A00;">FF (F. Fraccionado)</span>
+          <span style="font-size:30px; font-weight:800; color:var(--color-dia); background:white; padding:8px 25px; border-radius:18px; box-shadow:0 5px 15px rgba(255,159,28,0.15);">${u.FF_Disponibles || 0}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+          <span style="font-size:15px; font-weight:800; color:#E68A00;">ADM (Administrativo)</span>
+          <span style="font-size:30px; font-weight:800; color:var(--color-dia); background:white; padding:8px 25px; border-radius:18px; box-shadow:0 5px 15px rgba(255,159,28,0.15);">${u.ADM_Disponibles || 0}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Información Laboral</div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+        <div style="background:var(--color-fondo); padding:15px; border-radius:16px;"><div style="font-size:13px; font-weight:800; color:var(--texto-gris);">RUT</div><div style="font-weight:800; font-size:16px;">${u.RUT || '-'}</div></div>
+        <div style="background:var(--color-fondo); padding:15px; border-radius:16px;"><div style="font-size:13px; font-weight:800; color:var(--texto-gris);">Email Institucional</div><div style="font-weight:800; font-size:16px;">${u.Email}</div></div>
+        <div style="background:var(--color-fondo); padding:15px; border-radius:16px;"><div style="font-size:13px; font-weight:800; color:var(--texto-gris);">Equipo / Turno Base</div><div style="font-weight:800; font-size:16px;">${u.Turno_Base || 'Diurno'}</div></div>
+        <div style="background:var(--color-fondo); padding:15px; border-radius:16px;"><div style="font-size:13px; font-weight:800; color:var(--texto-gris);">Fecha Ingreso</div><div style="font-weight:800; font-size:16px;">${fechaIngresoTxt}</div></div>
+      </div>
+    </div>
+  `;
+  document.getElementById("contenido-perfil").innerHTML = html;
+}
+
+function cargarMisSolicitudes() {
+  cargarConfirmaciones();
+  var contenedor = document.getElementById("lista-solicitudes");
+  contenedor.innerHTML = '<div style="padding:50px; text-align:center; font-weight:700; color:var(--texto-gris);">Buscando historial...</div>';
+  google.script.run
+    .withSuccessHandler(function(datos) {
+      if (!datos || datos.length === 0) {
+        contenedor.innerHTML = '<div style="text-align:center; padding:50px; font-weight:700; color:var(--texto-gris);">No hay solicitudes registradas. 🎈</div>';
+        return;
+      }
+      var html = '';
+      datos.forEach(function(s) {
+        var color = s.Estado === 'Aprobado' ? 'var(--color-noche)' : (s.Estado === 'Rechazado' ? 'var(--rojo)' : (s.Estado === 'Pendiente Colega' ? 'var(--color-excepcion)' : 'var(--color-dia)'));
+        html += `<div class="card" style="border-left: 6px solid ${color}; padding: 20px; margin-bottom: 15px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:800; font-size:16px;">${s.Tipo_Sol}</span>
+            <span style="background:${color}15; color:${color}; padding:6px 14px; border-radius:14px; font-size:12px; font-weight:800;">${s.Estado}</span>
+          </div>
+          <div style="font-size:14px; font-weight:600; margin-top:10px; color:var(--texto-gris);">Del ${formFecha(s.Fecha_Inicio)} al ${formFecha(s.Fecha_Fin)}</div>
+        </div>`;
+      });
+      contenedor.innerHTML = html;
+    })
+    .obtenerMisSolicitudes(APP.usuario.ID_Usuario);
+}
+
+// ==========================================
+// CONFIRMACIÓN DE COLEGA + COBERTURA (UI)
+// ==========================================
+function cargarConfirmaciones() {
+  google.script.run.withSuccessHandler(function(lista) {
+    var card = document.getElementById("card-confirmaciones");
+    var cont = document.getElementById("lista-confirmaciones");
+    if (!card || !cont) return;
+    if (!lista || lista.length === 0) { card.style.display = "none"; return; }
+    card.style.display = "block";
+    var html = "";
+    lista.forEach(function(c) {
+      html += `<div style="background:#fff; border-radius:16px; padding:18px; margin-bottom:12px; border:2px solid #B2EBF2;">
+        <div style="font-weight:800; font-size:16px; margin-bottom:4px;">${c.Solicitante} te pide cubrir un turno <span style="color:var(--color-noche);">${c.Turno_Ausencia}</span></div>
+        <div style="font-size:14px; font-weight:700; color:var(--texto-gris); margin-bottom:8px;">📅 ${formFecha(c.Fecha_Inicio)}</div>
+        <div style="font-size:14px; font-weight:600; color:var(--texto-oscuro); margin-bottom:14px; font-style:italic;">“${c.Motivo || 'Sin mensaje'}”</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn" style="background:var(--color-noche); color:#fff;" onclick="aceptarCambio('${c.ID_Sol}')">✓ Acepto cubrir</button>
+          <button class="btn" style="background:#FFF0F3; color:var(--rojo);" onclick="rechazarCambio('${c.ID_Sol}')">✗ No puedo</button>
+        </div>
+      </div>`;
+    });
+    cont.innerHTML = html;
+  }).obtenerConfirmacionesPendientes(APP.usuario.ID_Usuario);
+}
+
+function aceptarCambio(idSol) {
+  google.script.run.withSuccessHandler(function(res) {
+    alert(res.mensaje);
+    cargarMisSolicitudes();
+    actualizarBadgeConfirmaciones();
+  }).responderCambioColega(idSol, APP.usuario.ID_Usuario, true, "");
+}
+
+function rechazarCambio(idSol) {
+  var motivo = prompt("¿Por qué no puedes cubrir este turno? (opcional)") || "";
+  google.script.run.withSuccessHandler(function(res) {
+    alert(res.mensaje);
+    cargarMisSolicitudes();
+    actualizarBadgeConfirmaciones();
+  }).responderCambioColega(idSol, APP.usuario.ID_Usuario, false, motivo);
+}
+
+function actualizarBadgeConfirmaciones() {
+  google.script.run.withSuccessHandler(function(lista) {
+    var n = (lista || []).length;
+    ["badge-confirm-side", "badge-confirm-mob"].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (n > 0) { el.textContent = n; el.style.display = "inline-flex"; }
+      else { el.style.display = "none"; }
+    });
+  }).obtenerConfirmacionesPendientes(APP.usuario.ID_Usuario);
+}
+
+function renderCoberturaBanner(cob) {
+  var el = document.getElementById("cob-banner");
+  if (!el) return;
+  if (cob.cubierto) {
+    el.innerHTML = `<div style="background:#E8F9F6; border:2px solid #A7E8E0; border-radius:16px; padding:16px;">
+      <div style="font-weight:800; color:var(--color-noche);">✓ Turno cubierto</div>
+      <div style="font-weight:600; color:#54618f; font-size:14px; margin-top:4px;">La cobertura queda asegurada por <strong>${cob.reemplazante}</strong>. Sin descobertura para el equipo.</div></div>`;
+    return;
+  }
+  if (cob.nota) {
+    el.innerHTML = `<div style="background:var(--color-fondo); border:2px solid var(--borde-suave); border-radius:16px; padding:16px; font-weight:600; color:#54618f; font-size:14px;">ℹ️ ${cob.nota}</div>`;
+    return;
+  }
+  if (!cob.dias || cob.dias.length === 0) {
+    el.innerHTML = `<div style="background:#E8F9F6; border:2px solid #A7E8E0; border-radius:16px; padding:16px; font-weight:700; color:var(--color-noche);">✓ Sin turnos de rotación afectados en estas fechas.</div>`;
+    return;
+  }
+  var hayRiesgo = !cob.ok;
+  var head = hayRiesgo
+    ? `<div style="font-weight:800; color:var(--rojo); font-size:16px;">⚠️ Descobertura detectada · Equipo ${cob.equipo}</div><div style="font-size:13px; font-weight:600; color:#54618f; margin-top:2px;">Aprobar dejaría algún turno bajo la dotación mínima (${cob.minimo}).</div>`
+    : `<div style="font-weight:800; color:var(--color-noche); font-size:16px;">✓ Cobertura asegurada · Equipo ${cob.equipo}</div><div style="font-size:13px; font-weight:600; color:#54618f; margin-top:2px;">El equipo se mantiene en o sobre la dotación mínima (${cob.minimo}).</div>`;
+  var rows = cob.dias.map(function(d) {
+    var c = d.riesgo ? 'var(--rojo)' : 'var(--color-noche)';
+    var ic = d.riesgo ? '⚠️' : '✓';
+    return `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; background:#fff; border-radius:12px; padding:10px 14px; margin-top:8px;">
+      <span style="font-weight:700; font-size:14px;">${ic} ${d.fechaVisual} · ${d.turno}</span>
+      <span style="font-weight:800; font-size:13px; color:${c}; white-space:nowrap;">${d.presentes} presente(s) / mín. ${d.minimo}</span></div>`;
+  }).join('');
+  var bg = hayRiesgo ? '#FFF0F3' : '#E8F9F6';
+  var bd = hayRiesgo ? '#FFC2D1' : '#A7E8E0';
+  el.innerHTML = `<div style="background:${bg}; border:2px solid ${bd}; border-radius:16px; padding:16px;">${head}${rows}</div>`;
+}
+
+// ==========================================
+// MÓDULO DE LICENCIAS MÉDICAS (UI)
+// ==========================================
+function abrirModalLicencia() {
+  var m = document.getElementById("modal-licencia");
+  m.style.display = "flex";
+  document.getElementById("lic-mensaje").style.display = "none";
+  document.getElementById("lic-inicio").value = "";
+  document.getElementById("lic-fin").value = "";
+  document.getElementById("lic-folio").value = "";
+  document.getElementById("lic-obs").value = "";
+  google.script.run.withSuccessHandler(function(kines) {
+    var html = '<option value="">-- Selecciona profesional --</option>';
+    kines.forEach(function(k) { html += `<option value="${k.ID_Usuario}">${k.Nombre} ${k.Apellido} (${k.Turno_Base})</option>`; });
+    document.getElementById("lic-usuario").innerHTML = html;
+  }).obtenerListaKines();
+}
+
+function enviarLicencia() {
+  var datos = {
+    idUsuario: document.getElementById("lic-usuario").value,
+    fechaInicio: document.getElementById("lic-inicio").value,
+    fechaFin: document.getElementById("lic-fin").value,
+    folio: document.getElementById("lic-folio").value.trim(),
+    tipo: document.getElementById("lic-tipo").value,
+    observacion: document.getElementById("lic-obs").value.trim()
+  };
+  var msg = document.getElementById("lic-mensaje");
+  if (!datos.idUsuario || !datos.fechaInicio || !datos.fechaFin) {
+    msg.style.display = "block"; msg.style.color = "var(--rojo)"; msg.innerText = "❌ Completa profesional y fechas."; return;
+  }
+  var btn = document.getElementById("btn-enviar-lic"); btn.innerText = "Registrando..."; btn.disabled = true;
+  google.script.run.withSuccessHandler(function(res) {
+    btn.innerText = "Registrar licencia"; btn.disabled = false;
+    msg.style.display = "block";
+    if (res.exito) {
+      msg.style.color = "var(--color-noche)"; msg.innerText = "✅ " + res.mensaje;
+      setTimeout(function() { document.getElementById("modal-licencia").style.display = "none"; cargarLicencias(); }, 1600);
+    } else { msg.style.color = "var(--rojo)"; msg.innerText = res.mensaje; }
+  }).cargarLicencia(datos);
+}
+
+function cargarLicencias() {
+  google.script.run.withSuccessHandler(function(lics) {
+    var cont = document.getElementById("tabla-licencias");
+    if (!lics || lics.length === 0) {
+      cont.innerHTML = '<div style="padding:30px; text-align:center; font-weight:700; color:var(--texto-gris);">No hay licencias registradas. 🎈</div>';
+    } else {
+      var html = `<table><thead><tr><th>Profesional</th><th>Equipo</th><th>Fechas</th><th>Folio</th><th>Días</th><th>Vacantes</th></tr></thead><tbody>`;
+      lics.forEach(function(l) {
+        var vacTxt = l.Vacantes === 0
+          ? `<span style="color:var(--texto-gris); font-weight:700; font-size:13px;">Sin turnos</span>`
+          : (l.Abiertas > 0
+            ? `<span style="background:#FFF0F3; color:var(--rojo); padding:4px 10px; border-radius:10px; font-size:12px; font-weight:800;">${l.Abiertas} abierta(s)</span>`
+            : `<span style="background:#E8F9F6; color:var(--color-noche); padding:4px 10px; border-radius:10px; font-size:12px; font-weight:800;">✓ ${l.Vacantes} cubierta(s)</span>`);
+        html += `<tr>
+          <td style="font-weight:800;">${l.Profesional}<br><span style="font-weight:600; font-size:12px; color:var(--texto-gris);">${l.Tipo}</span></td>
+          <td style="font-weight:700;">${l.Equipo}</td>
+          <td style="font-weight:700;">${formFecha(l.Fecha_Inicio)} - ${formFecha(l.Fecha_Fin)}</td>
+          <td style="font-size:13px; font-weight:700;">${l.Folio || '-'}</td>
+          <td style="font-weight:800;">${l.Dias}</td>
+          <td>${vacTxt}</td>
+        </tr>`;
+      });
+      cont.innerHTML = html + `</tbody></table>`;
+    }
+  }).obtenerLicencias();
+  cargarVacantes();
+}
+
+function cargarVacantes() {
+  google.script.run.withSuccessHandler(function(kines) {
+    google.script.run.withSuccessHandler(function(vacs) {
+      var cont = document.getElementById("lista-vacantes");
+      if (!vacs || vacs.length === 0) {
+        cont.innerHTML = '<div style="padding:30px; text-align:center; font-weight:700; color:var(--texto-gris);">No hay turnos vacantes. 🎉</div>'; return;
+      }
+      var html = '';
+      vacs.forEach(function(v) {
+        if (v.Estado === 'Cubierta') {
+          html += `<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#E8F9F6; border:2px solid #A7E8E0; border-radius:16px; padding:14px 18px; margin-bottom:10px; flex-wrap:wrap;">
+            <div><div style="font-weight:800;">${formFechaCorta(v.Fecha)} · ${v.Turno} <span style="color:var(--texto-gris); font-weight:700;">(Eq ${v.Equipo})</span></div><div style="font-size:13px; font-weight:600; color:var(--texto-gris);">Ausente: ${v.Ausente}</div></div>
+            <span style="background:var(--color-noche); color:#fff; padding:6px 14px; border-radius:12px; font-size:13px; font-weight:800; white-space:nowrap;">✓ Cubre: ${v.Cobertura}</span></div>`;
+        } else {
+          var sel = '<select id="cov-' + v.ID_Vac + '" style="padding:9px; border-radius:10px; border:2px solid var(--borde-suave); font-family:Plus Jakarta Sans,sans-serif; font-weight:600; outline:none;"><option value="">-- Asignar colega --</option>';
+          kines.forEach(function(k) { if (k.ID_Usuario !== v.ID_Ausente) sel += `<option value="${k.ID_Usuario}">${k.Nombre} ${k.Apellido}</option>`; });
+          sel += '</select>';
+          html += `<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#FFF0F3; border:2px solid #FFC2D1; border-radius:16px; padding:14px 18px; margin-bottom:10px; flex-wrap:wrap;">
+            <div><div style="font-weight:800;">🔴 ${formFechaCorta(v.Fecha)} · ${v.Turno} <span style="color:var(--texto-gris); font-weight:700;">(Eq ${v.Equipo})</span></div><div style="font-size:13px; font-weight:600; color:var(--texto-gris);">Ausente: ${v.Ausente}</div></div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">${sel}<button class="btn" style="background:var(--azul-boton); color:#fff; padding:9px 14px;" onclick="asignarCobertura('${v.ID_Vac}')">Asignar</button></div></div>`;
+        }
+      });
+      cont.innerHTML = html;
+    }).obtenerVacantes(false);
+  }).obtenerListaKines();
+}
+
+function asignarCobertura(idVac) {
+  var sel = document.getElementById("cov-" + idVac);
+  var idCob = sel ? sel.value : "";
+  if (!idCob) { alert("Selecciona un colega para cubrir el turno."); return; }
+  google.script.run.withSuccessHandler(function(res) { alert(res.mensaje); cargarLicencias(); }).asignarVacante(idVac, idCob);
+}
+
+function cargarGestionTurnos() {
+  document.getElementById("tabla-gestion").innerHTML = '<div style="padding:50px; text-align:center; font-weight:700;">Cargando consolidado...</div>';
+  google.script.run
+    .withSuccessHandler(function(datos) {
+      if (!datos || datos.length === 0) { document.getElementById("tabla-gestion").innerHTML = '<div style="padding:50px; text-align:center; font-weight:700;">No hay registros. 🎈</div>'; return; }
+
+      var html = `<table><thead><tr> <th>Fecha</th> <th>Kinesiólogo</th> <th>Tipo</th> <th>Detalle / Reemplazo</th> </tr></thead><tbody>`;
+      datos.forEach(function(d) {
+        var bg = d.Tipo === 'TURNO_EXTRA' ? 'var(--azul-boton)' : 'var(--color-dia)';
+        html += `<tr>
+          <td style="font-weight:800;">${formFechaCorta(d.Fecha_Inicio)}</td>
+          <td style="font-weight:800;">${d.Kinesiologo}</td>
+          <td><span style="background:${bg}; color:white; padding:6px 12px; border-radius:12px; font-size:12px; font-weight:800;">${d.Tipo}</span></td>
+          <td style="color:var(--texto-gris); font-size:14px; font-weight:600;">${d.Detalle}</td>
+        </tr>`;
+      });
+      document.getElementById("tabla-gestion").innerHTML = html + `</tbody></table>`;
+    })
+    .obtenerConsolidadoTurnos();
+}
+
+function cambiarTabAdmin(tabId, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-pendientes').style.display = 'none';
+  document.getElementById('tab-licencias').style.display = 'none';
+  document.getElementById('tab-internos').style.display = 'none';
+  document.getElementById('tab-' + tabId).style.display = 'block';
+  if (tabId === 'licencias') cargarLicencias();
+}
+
+function cargarAdmin() {
+  document.getElementById("tabla-admin").innerHTML = '<div style="padding:50px; text-align:center; font-weight:700;">Cargando solicitudes...</div>';
+  google.script.run
+    .withSuccessHandler(function(solicitudes) {
+      if (!solicitudes || solicitudes.length === 0) {
+        document.getElementById("tabla-admin").innerHTML = '<div style="padding:50px; text-align:center; font-weight:800; color:var(--texto-gris);">No hay solicitudes pendientes. 🎉</div>';
+        return;
+      }
+      var html = `<table><thead><tr> <th>ID</th> <th>Kinesiólogo</th> <th>Tipo</th> <th>Fechas</th> <th style="text-align:center;">Acción</th> </tr></thead><tbody>`;
+      solicitudes.forEach(function(s) {
+        html += `<tr>
+          <td style="font-weight:800; font-size:13px; color:var(--texto-gris);">${s.ID_Sol}</td>
+          <td style="font-weight:800;">${s.Solicitante}<br><span style="font-weight:600; font-size:13px; color:var(--texto-gris);">${s.Motivo || ''}</span>${s.Cubierto ? `<br><span style="display:inline-block; margin-top:6px; background:#E0F7FA; color:var(--color-noche); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">↔ Cubierto</span>` : (s.Riesgo ? `<br><span style="display:inline-block; margin-top:6px; background:#FFF0F3; color:var(--rojo); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">⚠️ Riesgo cobertura</span>` : `<br><span style="display:inline-block; margin-top:6px; background:#E8F9F6; color:var(--color-noche); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">✓ Cobertura OK</span>`)}</td>
+          <td><span style="background:var(--color-blanco); padding:6px 12px; border-radius:12px; font-size:12px; font-weight:800; color:var(--texto-oscuro); border:2px solid var(--borde-suave);">${s.Tipo_Sol}</span></td>
+          <td style="font-size:14px; font-weight:700;">${formFecha(s.Fecha_Inicio)} - ${formFecha(s.Fecha_Fin)}</td>
+          <td style="text-align:center; white-space:nowrap;">
+            <button onclick="accionarSolicitud('${s.ID_Sol}', 'aprobar')" class="btn" style="background:var(--color-noche); color:white; padding:8px 14px; font-size:14px;">✓</button>
+            <button onclick="accionarSolicitud('${s.ID_Sol}', 'rechazar')" class="btn" style="background:var(--rojo); color:white; padding:8px 14px; font-size:14px; margin-left:6px;">✗</button>
+          </td>
+        </tr>`;
+      });
+      document.getElementById("tabla-admin").innerHTML = html + `</tbody></table>`;
+    })
+    .obtenerSolicitudesAdmin(APP.usuario.ID_Usuario);
+}
+
+function accionarSolicitud(idSol, accion) {
+  solicitudPendienteId = idSol;
+  document.getElementById("apr-nota").value = "";
+  var modal = document.getElementById("modal-aprobar");
+  var cont = document.getElementById("contenedor-turnos-perdidos");
+  var btn = document.getElementById("btn-confirmar-aprobacion");
+
+  cont.innerHTML = 'Cargando detalles…';
+  btn.innerText = accion === 'aprobar' ? '✓ Confirmar Aprobación' : '✗ Confirmar Rechazo';
+  btn.style.background = accion === 'aprobar' ? 'var(--color-noche)' : 'var(--rojo)';
+  btn.setAttribute("data-accion", accion);
+  modal.style.display = "flex";
+
+  if(accion === 'aprobar') {
+    cont.innerHTML = '<div id="cob-banner" style="margin-bottom:16px; font-weight:700; color:var(--texto-gris);">Analizando cobertura del equipo… ✨</div><div id="cob-turnos"></div>';
+    google.script.run.withSuccessHandler(renderCoberturaBanner).analizarCoberturaSolicitud(idSol);
+    google.script.run.withSuccessHandler(function(res) {
+      var dest = document.getElementById('cob-turnos');
+      if(!dest) return;
+      if(!res || !res.turnosPerdidos || res.turnosPerdidos.length === 0) { dest.innerHTML = ''; return; }
+      var html = '<p style="margin:6px 0 12px; font-weight:800; color:var(--texto-oscuro);">Confirma quién cubre el turno:</p>';
+      res.turnosPerdidos.forEach(function(t) {
+        html += `<div style="background:var(--color-fondo); padding:12px; border-radius:16px; margin-bottom:8px; font-weight:700;">📅 ${t.fechaVisual} (${t.tipo}) <select class="select-reemplazo" data-fecha="${t.fechaStr}" data-tipo="${t.tipo}" style="width:100%; padding:10px; margin-top:8px; border-radius:12px; border:2px solid var(--borde-suave); font-family:'Plus Jakarta Sans', sans-serif; font-weight:600; outline:none;">`;
+        t.sugerencias.forEach(function(s) { html += `<option value="${s.id}" selected>${s.nombre}</option>`; });
+        html += `</select></div>`;
+      });
+      dest.innerHTML = html;
+    }).obtenerDetallesAprobacion(idSol);
+  } else {
+    cont.innerHTML = '<span style="color:var(--rojo);">Estás a punto de RECHAZAR esta solicitud.</span>';
+  }
+}
+
+function confirmarAprobacion() {
+  var btn = this;
+  var accion = btn.getAttribute("data-accion");
+  var nota = document.getElementById("apr-nota").value.trim();
+  btn.innerText = "Procesando...";
+  btn.disabled = true;
+
+  if(accion === 'aprobar') {
+    var assigns = [];
+    document.querySelectorAll(".select-reemplazo").forEach(function(sel) {
+      assigns.push({ fecha: sel.getAttribute("data-fecha"), tipo: sel.getAttribute("data-tipo"), idReemplazo: sel.value });
+    });
+    google.script.run.withSuccessHandler(function(res){ btn.disabled = false; cerrarModalAprobar(); alert(res.mensaje); cargarAdmin(); })
+      .aprobarSolicitudMulti(solicitudPendienteId, APP.usuario.ID_Usuario, nota, assigns);
+  } else {
+    google.script.run.withSuccessHandler(function(res){ btn.disabled = false; cerrarModalAprobar(); alert(res.mensaje); cargarAdmin(); })
+      .rechazarSolicitud(solicitudPendienteId, APP.usuario.ID_Usuario, nota);
+  }
+}
+
+function cerrarModalAprobar() {
+  document.getElementById("modal-aprobar").style.display = "none";
+  solicitudPendienteId = null;
+}
+</script>
+
+
+<!-- ===== PLANILLA MENSUAL (Tema Pro) ===== -->
+<script>
+var PLA = (function(){ var n=new Date(); return { mes: n.getMonth()+1, anio: n.getFullYear() }; })();
+function cambiarMesPlanilla(d){ PLA.mes+=d; if(PLA.mes>12){PLA.mes=1;PLA.anio++;} else if(PLA.mes<1){PLA.mes=12;PLA.anio--;} cargarPlanilla(); }
+function cambiarAnioPlanilla(d){ PLA.anio+=d; cargarPlanilla(); }
+function cargarPlanilla(){
+  var lbl=document.getElementById('pla-mes'); if(lbl) lbl.textContent=APP.meses[PLA.mes-1]+' '+PLA.anio;
+  var cont=document.getElementById('planilla-container'); if(!cont) return;
+  cont.innerHTML='<div style="padding:40px; text-align:center; font-weight:700; color:var(--texto-gris);">Generando planilla…</div>';
+  google.script.run.withSuccessHandler(renderPlanilla).withFailureHandler(function(e){ cont.innerHTML='<div style="padding:30px;color:var(--rojo);font-weight:700;">Error al generar la planilla.</div>'; }).obtenerPlanillaMes(PLA.anio, PLA.mes);
+}
+function _plEtiqLarga(c){ if(c.tipo==='lm') return 'LICENCIA MÉDICA'; var m={FF:'FERIADO FRACCIONADO',ADM:'ADMINISTRATIVO',FL:'FERIADO LEGAL'}; return m[c.code]||c.code; }
+function _plLeyenda(){ return '<div class="pl-legend">'+
+  '<span class="pl-lg"><span class="pl-sw">L</span> Turno Largo</span>'+
+  '<span class="pl-lg"><span class="pl-sw">N</span> Turno Noche</span>'+
+  '<span class="pl-lg"><span class="pl-sw">J</span> Jornada L–V</span>'+
+  '<span class="pl-lg"><span class="pl-sw" style="background:#F1C232">N</span> Turno extra</span>'+
+  '<span class="pl-lg"><span class="pl-sw" style="background:#3C78D8;color:#fff">FF</span> Feriado Fraccionado</span>'+
+  '<span class="pl-lg"><span class="pl-sw" style="background:#3C78D8;color:#fff">ADM</span> Administrativo</span>'+
+  '<span class="pl-lg"><span class="pl-sw" style="background:#E5484D;color:#fff">LM</span> Licencia Médica</span>'+
+  '</div>'; }
+function renderPlanilla(data){
+  function wk(c){ return c==='S'||c==='D'; }
+  var h1='<tr><th class="pl-nm">'+APP.meses[data.mes-1].toUpperCase()+'</th>';
+  var h2='<tr><th class="pl-nm sub">'+data.anio+'</th>';
+  for(var i=0;i<data.dias;i++){ var w=wk(data.dow[i]);
+    h1+='<th class="pl-d'+(w?' wk':'')+'">'+data.dow[i]+'</th>';
+    h2+='<th class="pl-d'+(w?' wk':'')+'">'+(i+1)+'</th>';
+  }
+  h1+='</tr>'; h2+='</tr>';
+  var body='';
+  data.filas.forEach(function(f){
+    var tr='<tr class="pl-row'+(f.finBloque?' fin':'')+'"><td class="pl-nm">'+f.etiqueta+'</td>';
+    for(var i=0;i<f.celdas.length;i++){
+      var c=f.celdas[i];
+      if(c.tipo==='lm'||c.tipo==='permiso'){
+        var span=1; for(var j=i+1;j<f.celdas.length;j++){ if(f.celdas[j].tipo===c.tipo && f.celdas[j].code===c.code) span++; else break; }
+        var bg=(c.tipo==='lm')?'#E5484D':'#3C78D8';
+        var label=span>1?_plEtiqLarga(c):c.code;
+        tr+='<td colspan="'+span+'" class="pl-cd nota" style="background:'+bg+';color:#fff;">'+label+'</td>'; i+=span-1;
+      } else if(c.tipo==='extra'){
+        tr+='<td class="pl-cd" style="background:#F1C232;color:#1f2937;font-weight:800;">'+c.code+'</td>';
+      } else {
+        tr+='<td class="pl-cd">'+c.code+'</td>';
+      }
+    }
+    tr+='</tr>'; body+=tr;
+  });
+  document.getElementById('planilla-container').innerHTML='<div class="pl-scroll"><table class="pl-table"><thead>'+h1+h2+'</thead><tbody>'+body+'</tbody></table></div>'+_plLeyenda();
+}
+</script>
+
+<!-- ===== REPORTE RRHH JS ===== -->
+<script>
+var RPT = { mes: new Date().getMonth()+1, anio: new Date().getFullYear() };
+function cambiarMesReporte(d){ RPT.mes+=d; if(RPT.mes>12){RPT.mes=1;RPT.anio++;} else if(RPT.mes<1){RPT.mes=12;RPT.anio--;} cargarReporte(); }
+function cambiarAnioReporte(d){ RPT.anio+=d; cargarReporte(); }
+function cargarReporte(){
+  var lbl=document.getElementById('rpt-mes-lbl'); if(lbl) lbl.textContent=APP.meses[RPT.mes-1]+' '+RPT.anio;
+  var cont=document.getElementById('rpt-container'); if(!cont) return;
+  cont.innerHTML='<div style="padding:40px;text-align:center;font-weight:700;color:var(--texto-gris);">Generando reporte…</div>';
+  google.script.run.withSuccessHandler(renderReporte).withFailureHandler(function(){ cont.innerHTML='<div style="padding:30px;color:var(--rojo);font-weight:700;">Error al generar el reporte.</div>'; }).obtenerDatosMes(RPT.anio, RPT.mes);
+}
+function _rptTabla(clase, rows, vacio){
+  if(!rows||!rows.length) return '<p class="rpt-empty">'+vacio+'</p>';
+  var html='<table class="rpt-table '+clase+'"><thead><tr><td class="rpt-nm">Funcionario</td><td class="rpt-items">'+(clase==='cambios'?'Cambio':(clase==='extras'?'Turno':'Turnos asignados'))+'</td></tr></thead><tbody>';
+  rows.forEach(function(r){ html+='<tr><td class="rpt-nm">'+r.nombre+'</td><td class="rpt-items"><ul>'+r.items.map(function(i){return'<li>'+i+'</li>';}).join('')+'</ul></td></tr>'; });
+  return html+'</tbody></table>';
+}
+function renderReporte(data){
+  var mesNombre=APP.meses[data.mes-1].toUpperCase()+' '+data.anio;
+  var html='<div class="rpt-title">CAMBIOS DE TURNOS Y TURNOS EXTRA '+mesNombre+'</div>';
+  html+='<div class="rpt-unit">Unidad UCI · Hospital San Pablo de Coquimbo</div>';
+  html+='<div class="rpt-section"><h3>Cambios de turno '+APP.meses[data.mes-1]+':</h3>'+_rptTabla('cambios',data.cambios,'Sin cambios de turno registrados este mes.')+'</div>';
+  html+='<div class="rpt-section"><h3>Turnos extra:</h3>'+_rptTabla('extras',data.extras,'Sin turnos extra registrados este mes.')+'</div>';
+  if(data.reemplazos&&data.reemplazos.length){
+    html+='<div class="rpt-section"><h3>Reemplazos UCI:</h3>'+_rptTabla('reemplazos',data.reemplazos,'')+'</div>';
+  }
+  document.getElementById('rpt-container').innerHTML=html;
+}
+</script>
+
+<!-- ===== SELECTOR DE PALETA (Tema Pro) ===== -->
+<style>
+  .kt-fab{ position:fixed; right:24px; bottom:24px; z-index:900; width:54px; height:54px; border-radius:16px;
+    background:var(--color-blanco); border:1px solid var(--borde-suave); box-shadow:var(--shadow-md);
+    cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .2s, box-shadow .2s; }
+  .kt-fab:hover{ transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+  .kt-fab .d{ width:11px; height:11px; border-radius:50%; display:block; margin-left:-4px; border:2px solid var(--color-blanco); }
+  .kt-fab .d1{ margin-left:0; background:var(--primary);} .kt-fab .d2{ background:var(--largo);} .kt-fab .d3{ background:var(--success);}
+  .kt-panel{ position:fixed; right:24px; bottom:90px; z-index:901; width:286px; background:var(--color-blanco);
+    border:1px solid var(--borde-suave); border-radius:18px; box-shadow:var(--shadow-lg); padding:18px;
+    transform:translateY(12px) scale(.96); opacity:0; pointer-events:none; transition:.2s ease; transform-origin:bottom right; }
+  .kt-panel.abierta{ transform:translateY(0) scale(1); opacity:1; pointer-events:auto; }
+  .kt-panel h4{ font-size:15px; font-weight:800; color:var(--texto-oscuro); margin:0 0 2px; letter-spacing:-0.01em; }
+  .kt-panel .sub{ font-size:12.5px; font-weight:600; color:var(--texto-gris); margin-bottom:14px; }
+  .kt-grid{ display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+  .kt-swatch{ display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:12px;
+    border:1.5px solid var(--borde-suave); background:var(--color-fondo); cursor:pointer; transition:.18s; text-align:left; font-family:var(--font); }
+  .kt-swatch:hover{ border-color:var(--texto-claro); }
+  .kt-swatch.activa{ border-color:var(--primary); background:color-mix(in srgb, var(--primary) 8%, #fff); }
+  .kt-dots{ display:flex; flex-shrink:0; }
+  .kt-dots i{ width:15px; height:15px; border-radius:50%; display:block; margin-left:-5px; border:2px solid #fff; }
+  .kt-dots i:first-child{ margin-left:0; }
+  .kt-swatch span{ font-size:12.5px; font-weight:700; color:var(--texto-oscuro); }
+  @media (max-width:900px){ .kt-fab{ bottom:96px; right:16px; } .kt-panel{ bottom:162px; right:16px; left:16px; width:auto; } }
+  .kt-no-anim *{ transition:none !important; }
+</style>
+<button class="kt-fab" id="kt-fab" title="Cambiar paleta de colores" aria-label="Cambiar paleta de colores">
+  <span class="d d1"></span><span class="d d2"></span><span class="d d3"></span>
+</button>
+<div class="kt-panel" id="kt-panel">
+  <h4>Paleta de colores</h4>
+  <div class="sub">Personaliza la apariencia del sistema</div>
+  <div class="kt-grid" id="kt-grid"></div>
+</div>
+<script>
+(function(){
+  var KT_PALETAS = {
+    indigo:    { nombre:'Índigo',    primary:'#4F46E5', primaryD:'#4338CA', largo:'#F59E0B', success:'#0EA372' },
+    oceano:    { nombre:'Océano',    primary:'#0C7FF2', primaryD:'#0A66C2', largo:'#FB8C3D', success:'#11A8A0' },
+    violeta:   { nombre:'Violeta',   primary:'#7C3AED', primaryD:'#6D28D9', largo:'#FB923C', success:'#14B8A6' },
+    esmeralda: { nombre:'Esmeralda', primary:'#0B9A6D', primaryD:'#087F5B', largo:'#F59E0B', success:'#0EA5E9' },
+    grafito:   { nombre:'Grafito',   primary:'#3B4256', primaryD:'#2B3142', largo:'#E08A1E', success:'#0E9F6E' }
+  };
+  var ORDEN = ['indigo','oceano','violeta','esmeralda','grafito'];
+  function aplicar(id){
+    var p = KT_PALETAS[id] || KT_PALETAS.indigo;
+    var root = document.documentElement;
+    root.classList.add('kt-no-anim');           // evita que las transiciones dejen colores "pegados"
+    root.style.setProperty('--primary', p.primary);
+    root.style.setProperty('--primary-d', p.primaryD);
+    root.style.setProperty('--largo', p.largo);
+    root.style.setProperty('--success', p.success);
+    void root.offsetWidth;                       // fuerza repintado instantáneo
+    requestAnimationFrame(function(){ root.classList.remove('kt-no-anim'); });
+    try { localStorage.setItem('kt_paleta', id); } catch(e){}
+    document.querySelectorAll('.kt-swatch').forEach(function(el){ el.classList.toggle('activa', el.getAttribute('data-id')===id); });
+  }
+  function construir(){
+    var g = document.getElementById('kt-grid'); if(!g) return;
+    g.innerHTML = ORDEN.map(function(id){ var p=KT_PALETAS[id];
+      return '<button class="kt-swatch" data-id="'+id+'"><span class="kt-dots"><i style="background:'+p.primary+'"></i><i style="background:'+p.largo+'"></i><i style="background:'+p.success+'"></i></span><span>'+p.nombre+'</span></button>';
+    }).join('');
+    g.querySelectorAll('.kt-swatch').forEach(function(el){ el.addEventListener('click', function(){ aplicar(el.getAttribute('data-id')); }); });
+  }
+  function init(){
+    construir();
+    var saved='indigo'; try { saved=localStorage.getItem('kt_paleta')||'indigo'; } catch(e){}
+    if(!KT_PALETAS[saved]) saved='indigo';
+    aplicar(saved);
+    var fab=document.getElementById('kt-fab'), panel=document.getElementById('kt-panel');
+    fab.addEventListener('click', function(e){ e.stopPropagation(); panel.classList.toggle('abierta'); });
+    document.addEventListener('click', function(e){
+      if(panel.classList.contains('abierta') && !panel.contains(e.target) && !fab.contains(e.target)) panel.classList.remove('abierta');
+    });
+  }
+  if(document.readyState!=='loading') init(); else document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" rx="22" fill="#4F46E5"/>
+    <text x="50" y="62" font-family="Plus Jakarta Sans, sans-serif" font-size="40" font-weight="800" fill="#fff" text-anchor="middle">KT</text>
+  </svg>
+</template>
+
+<script>
+// ===== AUTO-AUTH GAS =====
+window.addEventListener('load', function() {
+  google.script.run
+    .withSuccessHandler(function(usuario) {
+      if (usuario && usuario.ID_Usuario) {
+        APP.usuario = usuario;
+        document.getElementById('pantalla-login').style.display = 'none';
+        inicializarApp();
+      } else {
+        document.getElementById('login-loading').style.display = 'none';
+        document.getElementById('login-error').style.display = 'block';
+      }
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('login-status-txt').textContent = 'Error de conexión. Recarga la página.';
+    })
+    .obtenerUsuarioActual();
+});
+</script>
+</body>
+</html>
