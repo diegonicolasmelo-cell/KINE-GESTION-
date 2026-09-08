@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>KinesioTurno UCI</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2B3674">
+<meta name="description" content="Gestión de turnos, permisos y licencias — UCI Hospital San Pablo de Coquimbo">
+
+<!-- iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KinesioTurno">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+
+<style>
+  :root {
+    --azul:  #2B3674;
+    --indigo:#4F46E5;
+    --fondo: #F4F7FE;
+    --gris:  #6B7280;
+    --rojo:  #E5484D;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--fondo);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overscroll-behavior: none;
+  }
+
+  /* La app GAS vive aquí.
+     Respeta las safe areas: dentro de un iframe cross-origin las
+     variables env() valen 0, así que el recorte del notch y del
+     home indicator hay que hacerlo desde este documento padre. */
+  #marco {
+    position: fixed;
+    top:    env(safe-area-inset-top);
+    bottom: env(safe-area-inset-bottom);
+    left:   env(safe-area-inset-left);
+    right:  env(safe-area-inset-right);
+    width: auto; height: auto;
+    border: 0; display: none; background: var(--fondo);
+  }
+
+  /* Capas de estado (splash / error / setup) */
+  .capa {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px calc(24px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+    background: var(--fondo); text-align: center;
+  }
+  .capa[hidden] { display: none; }
+
+  .logo {
+    width: 84px; height: 84px; border-radius: 22px;
+    background: var(--indigo); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; font-weight: 800; letter-spacing: -1px;
+    box-shadow: 0 12px 28px rgba(79, 70, 229, .28);
+    margin-bottom: 22px;
+  }
+  h1 { font-size: 21px; font-weight: 800; color: var(--azul); margin: 0 0 6px; }
+  .sub { font-size: 14px; font-weight: 600; color: var(--gris); margin: 0 0 24px; }
+
+  .spinner {
+    width: 34px; height: 34px; border: 3px solid #DDE3F0;
+    border-top-color: var(--indigo); border-radius: 50%;
+    animation: girar .8s linear infinite;
+  }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  .caja {
+    max-width: 460px; width: 100%; text-align: left;
+    background: #fff; border: 1px solid #E4E9F5; border-radius: 18px;
+    padding: 22px; box-shadow: 0 8px 24px rgba(43, 54, 116, .07);
+  }
+  .caja h2 { font-size: 17px; font-weight: 800; color: var(--azul); margin: 0 0 10px; }
+  .caja p  { font-size: 14px; line-height: 1.6; color: #3F4A63; margin: 0 0 12px; font-weight: 500; }
+  .caja ol { font-size: 14px; line-height: 1.75; color: #3F4A63; margin: 0 0 4px; padding-left: 22px; font-weight: 500; }
+  .caja code {
+    background: #F1F4FB; border: 1px solid #E1E7F5; border-radius: 6px;
+    padding: 2px 6px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px; color: #2B3674; word-break: break-all;
+  }
+  .err { color: var(--rojo); font-weight: 700; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; margin-top: 14px; padding: 14px 20px;
+    background: var(--indigo); color: #fff; border: 0; border-radius: 14px;
+    font-size: 15px; font-weight: 700; font-family: inherit;
+    cursor: pointer; text-decoration: none;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn.sec { background: #fff; color: var(--azul); border: 2px solid #DDE3F0; }
+
+  /* Aviso flotante (offline / consejo iOS) */
+  #aviso {
+    position: fixed; z-index: 20;
+    left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+    background: var(--azul); color: #fff; border-radius: 14px;
+    padding: 13px 16px; font-size: 13.5px; font-weight: 600; line-height: 1.45;
+    box-shadow: 0 10px 30px rgba(43, 54, 116, .3);
+    display: none; align-items: center; gap: 12px;
+  }
+  #aviso button {
+    margin-left: auto; flex-shrink: 0;
+    background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 9px;
+    padding: 7px 12px; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<iframe id="marco"
+        title="KinesioTurno UCI"
+        allow="clipboard-write; fullscreen"
+        referrerpolicy="no-referrer-when-downgrade"></iframe>
+
+<!-- Splash -->
+<div class="capa" id="capa-carga">
+  <div class="logo">KT</div>
+  <h1 id="txt-nombre">KinesioTurno UCI</h1>
+  <p class="sub" id="txt-sub">Hospital San Pablo de Coquimbo</p>
+  <div class="spinner"></div>
+</div>
+
+<!-- Falta configurar APP_URL -->
+<div class="capa" id="capa-setup" hidden>
+  <div class="caja">
+    <h2>⚙️ Falta configurar la URL</h2>
+    <p>Esta PWA es el envoltorio de la app de Apps Script. Para conectarla:</p>
+    <ol>
+      <li>Abre el editor de <b>Apps Script</b>.</li>
+      <li>Ve a <b>Implementar → Administrar implementaciones</b>.</li>
+      <li>Copia la <b>URL de la aplicación web</b> (termina en <code>/exec</code>).</li>
+      <li>Pégala en <code>pwa/config.js</code>, en la variable <code>APP_URL</code>.</li>
+      <li>Guarda y vuelve a publicar (GitHub Pages tarda ~1 min).</li>
+    </ol>
+    <p style="margin-top:14px;">⚠️ Debe ser la URL <code>/exec</code>, no <code>/dev</code>: la de desarrollo solo funciona para el propietario del script.</p>
+  </div>
+</div>
+
+<!-- La app no cargó -->
+<div class="capa" id="capa-error" hidden>
+  <div class="caja">
+    <h2><span class="err">No se pudo cargar la app</span></h2>
+    <p id="txt-error">La aplicación no respondió. Puede ser la conexión, o que el navegador esté bloqueando el contenido incrustado.</p>
+    <button class="btn" id="btn-reintentar">↻ Reintentar</button>
+    <a class="btn sec" id="btn-abrir" href="#" target="_blank" rel="noopener">Abrir en el navegador ↗</a>
+  </div>
+</div>
+
+<div id="aviso"><span id="aviso-txt"></span><button id="aviso-x">Entendido</button></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var marco     = document.getElementById("marco");
+  var capaCarga = document.getElementById("capa-carga");
+  var capaSetup = document.getElementById("capa-setup");
+  var capaError = document.getElementById("capa-error");
+  var aviso     = document.getElementById("aviso");
+
+  // Registro del service worker: va primero, antes de cualquier salida
+  // temprana, para que el envoltorio quede instalable aunque todavía
+  // falte configurar APP_URL.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function (e) {
+      console.warn("SW no registrado:", e);
+    });
+  }
+
+  var url = (typeof APP_URL === "string" ? APP_URL : "").trim();
+  var cargada = false;
+  var relojCarga = null;
+
+  // Modo instalado (pantalla de inicio) vs pestaña normal
+  var standalone = window.matchMedia("(display-mode: standalone)").matches ||
+                   window.navigator.standalone === true;
+  var esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  if (typeof APP_NOMBRE === "string" && APP_NOMBRE) {
+    document.getElementById("txt-nombre").textContent = APP_NOMBRE;
+    document.title = APP_NOMBRE;
+  }
+  if (typeof APP_SUBTITULO === "string" && APP_SUBTITULO) {
+    document.getElementById("txt-sub").textContent = APP_SUBTITULO;
+  }
+
+  function mostrarAviso(texto, msLimpiar) {
+    document.getElementById("aviso-txt").innerHTML = texto;
+    aviso.style.display = "flex";
+    if (msLimpiar) setTimeout(ocultarAviso, msLimpiar);
+  }
+  function ocultarAviso() { aviso.style.display = "none"; }
+  document.getElementById("aviso-x").addEventListener("click", ocultarAviso);
+
+  function mostrarError(detalle) {
+    if (cargada) return;
+    clearTimeout(relojCarga);
+    if (detalle) document.getElementById("txt-error").innerHTML = detalle;
+    capaCarga.hidden = true;
+    capaError.hidden = false;
+  }
+
+  // --- Sin URL configurada ---
+  if (!url) {
+    capaCarga.hidden = true;
+    capaSetup.hidden = false;
+    return;
+  }
+
+  // Aviso si quedó la URL /dev (solo sirve para el propietario)
+  if (url.indexOf("/dev") === url.length - 4) {
+    mostrarAviso("Estás usando la URL <b>/dev</b>. Solo funciona para el dueño del script; usa la que termina en <b>/exec</b>.");
+  }
+
+  document.getElementById("btn-abrir").href = url;
+
+  // --- Cargar la app en el iframe ---
+  function cargarApp() {
+    cargada = false;
+    capaError.hidden = true;
+    capaCarga.hidden = false;
+    marco.style.display = "none";
+    // cache-buster: evita que el navegador sirva una versión vieja del shell GAS
+    marco.src = url + (url.indexOf("?") === -1 ? "?" : "&") + "pwa=1&t=" + Date.now();
+
+    clearTimeout(relojCarga);
+    relojCarga = setTimeout(function () {
+      mostrarError(esIOS && standalone
+        ? "La app no respondió. En iPhone/iPad, el inicio de sesión de Google puede bloquearse dentro de la app instalada. Ábrela en el navegador para entrar."
+        : null);
+    }, 20000);
+  }
+
+  marco.addEventListener("load", function () {
+    // El primer 'load' es del src vacío inicial; ignóralo.
+    if (!marco.src) return;
+    cargada = true;
+    clearTimeout(relojCarga);
+    capaCarga.hidden = true;
+    capaError.hidden = true;
+    marco.style.display = "block";
+
+    // Consejo único para iOS instalado: las cookies de terceros pueden
+    // impedir el login de Google dentro del iframe.
+    if (esIOS && standalone && !localStorage.getItem("kt_aviso_ios")) {
+      try { localStorage.setItem("kt_aviso_ios", "1"); } catch (e) {}
+      setTimeout(function () {
+        mostrarAviso("Si no puedes iniciar sesión, abre la app desde Safari una vez para autorizar tu cuenta de Google.", 12000);
+      }, 2500);
+    }
+  });
+
+  marco.addEventListener("error", function () { mostrarError(null); });
+
+  document.getElementById("btn-reintentar").addEventListener("click", cargarApp);
+
+  // --- Conexión ---
+  window.addEventListener("offline", function () {
+    mostrarAviso("Sin conexión. La app necesita internet para leer y guardar turnos.");
+  });
+  window.addEventListener("online", function () {
+    ocultarAviso();
+    if (!cargada) cargarApp();
+  });
+
+  if (!navigator.onLine) {
+    mostrarError("Estás sin conexión a internet. Conéctate y vuelve a intentar.");
+  } else {
+    cargarApp();
+  }
+})();
+</script>
+</body>
+</html>

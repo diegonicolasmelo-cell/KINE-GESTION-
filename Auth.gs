@@ -7,12 +7,21 @@
 // el ID de usuario desde el cliente.
 // ============================================
 
-function doGet() {
+function doGet(e) {
+  // ALLOWALL es necesario para el envoltorio PWA (carpeta /pwa): la app
+  // se embebe en un iframe servido desde otro origen (GitHub Pages), y
+  // DEFAULT solo permite el mismo dominio.
+  //
+  // Contrapartida aceptada: al permitir el embebido queda abierta la
+  // puerta al clickjacking. El riesgo es acotado porque toda acción
+  // sensible exige sesión Google válida y rol verificado en el servidor,
+  // y aprobar/rechazar pasa por un modal de confirmación explícito.
+  // Si algún día dejas de usar la PWA, vuelve a DEFAULT.
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
     .setTitle('KinesioTurno UCI')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function incluir(nombreArchivo) {

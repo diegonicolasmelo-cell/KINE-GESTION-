@@ -17,6 +17,7 @@ Código del servidor que da soporte a las tres mejoras prioritarias de la app:
 | `Planilla.gs` | **Planilla mensual** (`obtenerPlanillaMes`) y **Reporte RRHH** (`obtenerDatosMes`). |
 | `Notificaciones.gs` | Emails: nueva solicitud, acuse, resolución y **confirmación al colega**. |
 | `Index.html` | Frontend (cliente): calendario, permisos, **Planilla**, **Reporte RRHH** y selector de paleta. |
+| `pwa/` | **Envoltorio PWA** (se publica aparte, en GitHub Pages). Ver sección más abajo. |
 
 ## Modelo de seguridad
 
@@ -175,3 +176,64 @@ Para repetir pruebas desde cero: ejecuta `resetearProyecto()` y luego `inicializ
 Para revisar el estado: ejecuta `diagnosticoProyecto()` y mira el registro (Ver → Registros).
 
 > Los emails (`MailApp`/Gmail) requieren autorización adicional la primera vez que se disparan.
+
+---
+
+## PWA — instalar la app en el teléfono (`pwa/`)
+
+Una web app de Apps Script **no puede ser PWA por sí sola**: Google la sirve dentro
+de un iframe sandbox en `googleusercontent.com`, donde no puedes registrar un service
+worker ni un manifest propio. La solución es un **envoltorio estático** que se publica
+en GitHub Pages y carga la app GAS en un iframe a pantalla completa.
+
+Eso da: ícono en la pantalla de inicio, apertura sin barra del navegador, splash
+screen, pantalla offline decente y respeto del notch / home indicator.
+
+| Archivo | Rol |
+|---|---|
+| `pwa/config.js` | **El único archivo que editas**: la URL `/exec` de tu implementación. |
+| `pwa/index.html` | Shell: splash, iframe, manejo de errores de carga y de conexión. |
+| `pwa/manifest.webmanifest` | Nombre, colores, `display: standalone`, íconos. |
+| `pwa/sw.js` | Service worker: cachea **solo el envoltorio**, nunca los datos. |
+| `pwa/offline.html` | Pantalla cuando no hay conexión ni copia en caché. |
+| `pwa/icons/` | Íconos 192/512, maskable y apple-touch. |
+
+### Publicar
+
+1. Edita `pwa/config.js` y pega tu URL en `APP_URL` (la que termina en **`/exec`**).
+2. Sube los cambios a `main`.
+3. En GitHub: **Settings → Pages → Source: Deploy from a branch → `main` / `/ (root)`**.
+4. Espera ~1 minuto. Tu PWA queda en:
+   `https://diegonicolasmelo-cell.github.io/KINE-GESTION-/pwa/`
+5. Abre esa URL en el teléfono:
+   - **Android/Chrome**: menú ⋮ → *Instalar aplicación* (o el banner automático).
+   - **iPhone/Safari**: Compartir → *Añadir a pantalla de inicio*.
+
+Si `APP_URL` está vacía, la PWA muestra una pantalla que explica cómo configurarla
+en lugar de fallar en blanco.
+
+### Qué se cachea y qué no
+
+El service worker cachea el envoltorio (shell, íconos, manifest) con estrategia
+*network-first*, y **deja pasar a la red sin tocar** todo lo que va a
+`script.google.com`. Es deliberado: turnos, permisos y licencias son datos vivos
+y compartidos — servir una planilla desactualizada en una UCI es peor que no
+mostrar nada. Sin conexión, la app abre al instante pero avisa que necesita internet.
+
+Al cambiar archivos de `pwa/`, sube el número de `VERSION` en `sw.js` para que los
+teléfonos ya instalados descarten el caché anterior.
+
+### Dos advertencias reales
+
+**1. `XFrameOptionsMode.ALLOWALL` es obligatorio.** `doGet()` en `Auth.gs` debe
+permitir el embebido para que el iframe funcione desde otro origen. La contrapartida
+es que queda abierta la puerta al clickjacking; el riesgo es acotado porque toda
+acción sensible exige sesión Google válida y rol verificado en el servidor, y
+aprobar/rechazar pasa por un modal de confirmación. Si algún día dejas de usar la
+PWA, vuelve a `DEFAULT`.
+
+**2. iOS puede bloquear el login dentro de la app instalada.** Safari restringe las
+cookies de terceros en iframes, y el login de Google depende de ellas. Si a alguien
+en iPhone no le carga la sesión, que **abra la app una vez desde Safari** (la PWA
+muestra ese aviso automáticamente y ofrece el botón *Abrir en el navegador*). En
+Android/Chrome no ocurre.
