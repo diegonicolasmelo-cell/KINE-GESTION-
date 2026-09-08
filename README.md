@@ -134,6 +134,14 @@ riesgo = presentes < dotación mínima del turno
 Un cambio de turno con colega asignado se considera **cubierto** (no genera descobertura).
 Las jornadas diurnas L-V no afectan la rotación.
 
+## Instalación
+
+👉 **[INSTALACION.md](INSTALACION.md)** — guía completa paso a paso (~20 min):
+crear la planilla, subir el código con `clasp` o a mano, desplegar la web app,
+publicar la PWA en GitHub Pages y verificar que todo quedó bien.
+
+Resumen rápido para quien ya conoce Apps Script:
+
 ## Arranque rápido (para probar)
 
 1. Crea una **Google Sheet** nueva → menú **Extensiones → Apps Script**.

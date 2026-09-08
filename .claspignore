@@ -1,0 +1,13 @@
+# Todo lo que NO debe subir a Apps Script.
+# clasp sube únicamente los .gs, el Index.html y appsscript.json.
+
+**/**
+!appsscript.json
+!Auth.gs
+!Licencias.gs
+!Notificaciones.gs
+!Planilla.gs
+!Setup.gs
+!Solicitudes.gs
+!Utils.gs
+!Index.html
