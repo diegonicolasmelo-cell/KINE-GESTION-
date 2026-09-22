@@ -24,12 +24,18 @@ python3 -m http.server 8000
 
 ## Los datos
 
-`datos-muestra.js` tiene 34 respaldos transcritos de las hojas de Aline Campos,
-Rodrigo Caamaño y Katherine Albarnez (jul–nov 2026).
+`datos-muestra.js` tiene 34 respaldos con la estructura y las fechas tomadas de
+las hojas reales de los tres reemplazantes (jul–nov 2026).
 
-> ⚠️ **Transcripción aproximada desde fotografías.** Sirve para ver el prototipo
-> con casos reales, no como fuente de verdad. Verificar contra los originales
-> antes de cargar nada al sistema. No incluye RUT ni datos personales.
+> 🔒 **Anonimizado a propósito.** Este repositorio es público y los datos
+> originales ligan personas identificables con licencias médicas y prenatales,
+> que es dato sensible de salud. Los nombres están reemplazados por etiquetas
+> genéricas (`Titular A`…`J`, `Reemplazo 1`…`3`). Las fechas y la estructura son
+> las reales, que es lo que el prototipo necesita demostrar.
+>
+> ⚠️ **Transcripción aproximada desde fotografías**, no es fuente de verdad.
+> El roster real vive en la hoja de cálculo privada y en el documento de
+> especificación, nunca en este repositorio.
 
 Para probar con otros datos, editar ese archivo: es un array plano de objetos
 `{ id, quien, titular, tipo, desde, hasta, anotado, estado, nota }`.
