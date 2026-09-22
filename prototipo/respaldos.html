@@ -89,6 +89,7 @@
     border:1px solid}
   .alerta.roja{background:#FDECEC;border-color:#F5C2C2}
   .alerta.ambar{background:#FFF7E8;border-color:#F0DCAE}
+  .alerta.ok{background:#EDF7F0;border-color:#C3E3CE}
   .alerta .ico{font-size:17px;line-height:1.2}
   .alerta b{display:block;margin-bottom:2px;font-size:13.5px}
   .alerta p{margin:0;font-size:12.5px;color:#4B5563}
@@ -180,6 +181,7 @@
         <option value="Vigente">Vigente</option>
         <option value="Anulado">Anulado</option>
         <option value="Corregido">Corregido</option>
+        <option value="Absorbido">Absorbido</option>
       </select>
     </div>
     <div style="overflow-x:auto">
@@ -307,11 +309,13 @@
   function pintarKpis(){
     var vig = DATOS.filter(function(r){ return r.vigente; });
     var diasTot = vig.reduce(function(a,r){ return a+r.dias; }, 0);
-    var anul = DATOS.length - vig.length;
+    var abs  = DATOS.filter(function(r){ return r.absorbidoPor; }).length;
+    var anul = DATOS.length - vig.length - abs;
     var k = [
       [DATOS.length, 'respaldos anotados'],
       [vig.length, 'vigentes'],
       [anul, 'anulados'],
+      [abs, 'absorbidos'],
       [diasTot, 'días de cobertura'],
       [REEMPLAZANTES.length, 'reemplazantes']
     ];
@@ -454,7 +458,8 @@
     var rows = DATOS.filter(function(r){
       if (fq && r.quien !== fq) return false;
       if (ft && r.tipo !== ft) return false;
-      if (fe && r.estado !== fe) return false;
+      if (fe === 'Absorbido') { if (!r.absorbidoPor) return false; }
+      else if (fe && (r.estado !== fe || r.absorbidoPor)) return false;
       if (q && (r.titular+' '+r.quienNom).toLowerCase().indexOf(q) === -1) return false;
       return true;
     }).sort(function(a,b){
@@ -466,6 +471,7 @@
     document.getElementById('tbody').innerHTML = rows.map(function(r){
       var t = TIPOS[r.tipo]||{};
       var cls = r.estado==='Anulado' ? 'rojo' : (r.estado==='Corregido' ? 'ambar' : 'verde');
+      var etiq = r.absorbidoPor ? 'Absorbido' : r.estado;
       return '<tr class="'+(r.estado==='Anulado'?'anulado':'')+'">'+
         '<td><b>'+esc(r.quienNom)+'</b></td>'+
         '<td>'+esc(r.titular)+'</td>'+
@@ -474,7 +480,7 @@
         '<td>'+fmtLargo(r.hasta)+'</td>'+
         '<td><b>'+r.dias+'</b></td>'+
         '<td style="color:var(--gris)">'+fmt(r.anotado)+'</td>'+
-        '<td><span class="badge '+cls+'">'+esc(r.estado)+'</span></td>'+
+        '<td><span class="badge '+cls+'">'+esc(etiq)+'</span></td>'+
         '<td style="font-size:12px;color:var(--gris)">'+esc(r.nota||'')+'</td>'+
       '</tr>';
     }).join('');
@@ -515,12 +521,40 @@
     });
     Object.keys(choques).forEach(function(k){
       var c = choques[k], a = c.rs[0], b = c.rs[1];
-      al.push({ nivel:'roja', ico:'⛔',
-        t:'Doble respaldo el mismo día — '+esc(a.quienNom),
-        p:'<b>'+esc(a.titular)+' ('+a.tipo+')</b> '+fmtLargo(a.desde)+'–'+fmtLargo(a.hasta)+
-          ' y <b>'+esc(b.titular)+' ('+b.tipo+')</b> '+fmtLargo(b.desde)+'–'+fmtLargo(b.hasta)+
-          ' se pisan en '+c.dias+' día(s). El pago sigue al período, así que esos días se pagarían dos veces. '+
-          'Lo más probable: el segundo reemplazó al primero y el primero nunca se anuló.' });
+      // ¿Uno contiene enteramente al otro, mismo titular? → es una absorción
+      // sin resolver, no un choque cualquiera. La acción es distinta.
+      var contiene = (d(a.desde) <= d(b.desde) && d(a.hasta) >= d(b.hasta)) ||
+                     (d(b.desde) <= d(a.desde) && d(b.hasta) >= d(a.hasta));
+      if (contiene && a.titular === b.titular) {
+        var mayor = (d(a.hasta)-d(a.desde)) >= (d(b.hasta)-d(b.desde)) ? a : b;
+        var menor = mayor === a ? b : a;
+        al.push({ nivel:'roja', ico:'🔁',
+          t:'Absorción sin anular — '+esc(a.quienNom),
+          p:'<b>'+esc(menor.titular)+' ('+menor.tipo+')</b> '+fmtLargo(menor.desde)+'–'+fmtLargo(menor.hasta)+
+            ' queda dentro de <b>'+esc(mayor.titular)+' ('+mayor.tipo+')</b> '+
+            fmtLargo(mayor.desde)+'–'+fmtLargo(mayor.hasta)+
+            '. El segundo ya incluye al primero, así que el primero debe anularse por absorción. '+
+            'Mientras no se anule, son '+c.dias+' día(s) pagados dos veces.' });
+      } else {
+        al.push({ nivel:'roja', ico:'⛔',
+          t:'Doble respaldo el mismo día — '+esc(a.quienNom),
+          p:'<b>'+esc(a.titular)+' ('+a.tipo+')</b> '+fmtLargo(a.desde)+'–'+fmtLargo(a.hasta)+
+            ' y <b>'+esc(b.titular)+' ('+b.tipo+')</b> '+fmtLargo(b.desde)+'–'+fmtLargo(b.hasta)+
+            ' se pisan en '+c.dias+' día(s). El pago sigue al período, así que esos días se pagarían dos veces.' });
+      }
+    });
+
+    // Absorciones ya resueltas: informativas, muestran la cadena
+    var absorbidos = DATOS.filter(function(r){ return r.absorbidoPor; });
+    absorbidos.forEach(function(r){
+      var padre = DATOS.filter(function(x){ return x.id === r.absorbidoPor; })[0];
+      if (!padre) return;
+      al.push({ nivel:'ok', ico:'🔗',
+        t:'Absorción resuelta — '+esc(r.quienNom),
+        p:'<b>'+esc(r.titular)+' ('+r.tipo+')</b> '+fmtLargo(r.desde)+'–'+fmtLargo(r.hasta)+
+          ' fue absorbido por <b>'+esc(padre.titular)+' ('+padre.tipo+')</b> '+
+          fmtLargo(padre.desde)+'–'+fmtLargo(padre.hasta)+
+          ', que ya incluye esos días. Queda anulado y trazable, sin borrarse.' });
     });
 
     // 2. Anotado mucho después del inicio

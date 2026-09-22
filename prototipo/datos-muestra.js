@@ -22,7 +22,9 @@ var REEMPLAZANTES = [
   { id: 'R3', nombre: 'Katherine Albarnez', orden: 3, estado: 'Orientación' }
 ];
 
-// desde/hasta = período del respaldo · anotado = fecha en que se registró
+// desde/hasta   = período del respaldo
+// anotado       = fecha en que se registró (la letra chica de la hoja)
+// absorbidoPor  = id del respaldo que lo dejó sin efecto por contenerlo entero
 var RESPALDOS = [
   // ---- Aline Campos ----
   { id:'A01', quien:'R1', titular:'Carlos Moreno',      tipo:'LM',  desde:'2026-07-07', hasta:'2026-07-12', anotado:'2026-07-06', estado:'Vigente' },
@@ -61,7 +63,7 @@ var RESPALDOS = [
   { id:'B13', quien:'R2', titular:'Magdalena Contardo', tipo:'PRE', desde:'2026-10-14', hasta:'2026-10-31', anotado:'2026-09-08', estado:'Vigente', nota:'Licencia prenatal' },
 
   // ---- Katherine Albarnez (en orientación) ----
-  { id:'C01', quien:'R3', titular:'Magdalena Contardo', tipo:'FF',  desde:'2026-09-14', hasta:'2026-09-16', anotado:'2026-09-03', estado:'Vigente' },
+  { id:'C01', quien:'R3', titular:'Magdalena Contardo', tipo:'FF',  desde:'2026-09-14', hasta:'2026-09-16', anotado:'2026-09-03', estado:'Anulado', absorbidoPor:'C02', nota:'Absorbido: el prenatal del 14 al 28 ya incluye estos días' },
   { id:'C02', quien:'R3', titular:'Magdalena Contardo', tipo:'PRE', desde:'2026-09-14', hasta:'2026-09-28', anotado:'2026-09-08', estado:'Vigente', nota:'Licencia prenatal' }
 ];
 
