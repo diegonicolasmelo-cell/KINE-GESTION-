@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Respaldos UCI — prototipo</title>
+<style>
+  :root {
+    --azul:#2B3674; --indigo:#4F46E5; --fondo:#F4F7FE; --blanco:#fff;
+    --borde:#E4E9F5; --gris:#6B7280; --texto:#1F2937;
+    --rojo:#E5484D; --ambar:#F1932C; --verde:#2E9E5B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--texto);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+
+  header{background:var(--azul);color:#fff;padding:20px 24px}
+  header h1{margin:0 0 4px;font-size:19px;font-weight:800}
+  header p{margin:0;font-size:13px;color:#A8C4E0}
+
+  .aviso{background:#FFF8E6;border-bottom:1px solid #F2E2B5;padding:10px 24px;
+    font-size:12.5px;color:#7A5C00}
+
+  nav{display:flex;gap:4px;padding:0 24px;background:var(--blanco);
+    border-bottom:1px solid var(--borde);overflow-x:auto}
+  nav button{background:none;border:0;border-bottom:3px solid transparent;
+    padding:14px 16px;font:inherit;font-weight:700;color:var(--gris);
+    cursor:pointer;white-space:nowrap}
+  nav button.on{color:var(--indigo);border-bottom-color:var(--indigo)}
+
+  main{padding:24px;max-width:1400px}
+  .vista{display:none} .vista.on{display:block}
+
+  .card{background:var(--blanco);border:1px solid var(--borde);border-radius:14px;
+    padding:20px;margin-bottom:18px}
+  .card h2{margin:0 0 4px;font-size:16px;font-weight:800;color:var(--azul)}
+  .card .sub{margin:0 0 16px;font-size:13px;color:var(--gris)}
+
+  /* ---- Línea de continuidad ---- */
+  .tl-wrap{overflow-x:auto;padding-bottom:8px}
+  .tl{min-width:960px}
+  .tl-meses{display:flex;margin-left:150px;border-bottom:1px solid var(--borde);
+    margin-bottom:10px}
+  .tl-mes{font-size:11px;font-weight:800;color:var(--gris);text-transform:uppercase;
+    letter-spacing:.5px;padding-bottom:6px;border-left:1px solid var(--borde);
+    padding-left:6px}
+  .tl-fila{display:flex;align-items:center;margin-bottom:6px}
+  .tl-nombre{width:150px;flex-shrink:0;font-size:13px;font-weight:700;padding-right:12px}
+  .tl-nombre small{display:block;font-weight:600;color:var(--gris);font-size:11px}
+  .tl-barra{position:relative;height:26px;flex:1;background:#EDF1FA;border-radius:5px}
+  .tl-bloque{position:absolute;top:3px;height:20px;border-radius:4px;cursor:pointer;
+    border:1px solid rgba(0,0,0,.08)}
+  .tl-bloque.anulado{opacity:.3;background-image:repeating-linear-gradient(
+    45deg,transparent,transparent 3px,rgba(255,255,255,.7) 3px,rgba(255,255,255,.7) 6px)}
+  .tl-laguna{position:absolute;top:0;height:26px;border-radius:5px;
+    background:rgba(229,72,77,.10);border:1px dashed rgba(229,72,77,.5)}
+  .tl-laguna span{position:absolute;top:5px;left:50%;transform:translateX(-50%);
+    font-size:10px;font-weight:800;color:var(--rojo);white-space:nowrap}
+
+  .leyenda{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;padding-top:14px;
+    border-top:1px solid var(--borde)}
+  .leyenda span{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+  .sw{width:13px;height:13px;border-radius:3px;display:inline-block}
+
+  /* ---- Tablas ---- */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;padding:9px 10px;background:#F7F9FD;font-size:11px;
+    text-transform:uppercase;letter-spacing:.4px;color:var(--gris);
+    border-bottom:1px solid var(--borde);cursor:pointer;white-space:nowrap}
+  th:hover{color:var(--indigo)}
+  td{padding:9px 10px;border-bottom:1px solid #F0F3FA;vertical-align:top}
+  tr.anulado td{opacity:.45;text-decoration:line-through}
+
+  .pill{display:inline-block;padding:2px 8px;border-radius:9px;font-size:11px;
+    font-weight:800;color:#fff;white-space:nowrap}
+  .badge{display:inline-block;padding:2px 8px;border-radius:9px;font-size:11px;
+    font-weight:700;background:#EEF2FB;color:var(--azul)}
+  .badge.rojo{background:#FDECEC;color:var(--rojo)}
+  .badge.ambar{background:#FFF4E3;color:#8A5A00}
+  .badge.verde{background:#E9F7EF;color:#1B6B3A}
+
+  .filtros{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+  select,input[type=search]{padding:8px 10px;border:1px solid var(--borde);
+    border-radius:9px;font:inherit;font-size:13px;background:#fff;outline:none}
+  select:focus,input:focus{border-color:var(--indigo)}
+
+  /* ---- Alertas ---- */
+  .alerta{display:flex;gap:12px;padding:13px 15px;border-radius:11px;margin-bottom:10px;
+    border:1px solid}
+  .alerta.roja{background:#FDECEC;border-color:#F5C2C2}
+  .alerta.ambar{background:#FFF7E8;border-color:#F0DCAE}
+  .alerta.ok{background:#EDF7F0;border-color:#C3E3CE}
+  .alerta .ico{font-size:17px;line-height:1.2}
+  .alerta b{display:block;margin-bottom:2px;font-size:13.5px}
+  .alerta p{margin:0;font-size:12.5px;color:#4B5563}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;
+    margin-bottom:18px}
+  .kpi{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:15px}
+  .kpi .n{font-size:26px;font-weight:800;color:var(--azul);line-height:1.1}
+  .kpi .l{font-size:12px;color:var(--gris);font-weight:600;margin-top:3px}
+
+  /* ---- Ficha del respaldo (form) ---- */
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+  .campo label{display:block;font-size:12px;font-weight:800;color:var(--azul);
+    margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+  .campo input,.campo select{width:100%}
+  .campo .hint{font-size:11.5px;color:var(--gris);margin-top:4px}
+  .btn{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:11px 20px;
+    font:inherit;font-weight:700;cursor:pointer;margin-top:16px}
+  .prev{background:#F7F9FD;border:1px dashed var(--borde);border-radius:10px;
+    padding:14px;margin-top:16px;font-size:13px}
+  .prev-dia{display:inline-block;width:34px;text-align:center;padding:5px 0;margin:2px;
+    border-radius:6px;font-size:11px;font-weight:700}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Respaldos UCI — prototipo de visualización</h1>
+  <p>Hospital San Pablo de Coquimbo · las mismas hojas de la carpeta, consultables</p>
+</header>
+
+<div class="aviso">
+  ⚠️ Datos transcritos desde fotografías de las hojas de respaldo (jul–nov 2026).
+  Transcripción aproximada, solo para ver el prototipo funcionando. Verificar contra los originales.
+</div>
+
+<nav>
+  <button class="on" data-v="continuidad">Línea de continuidad</button>
+  <button data-v="registro">Registro</button>
+  <button data-v="alertas">Alertas</button>
+  <button data-v="alta">Anotar respaldo</button>
+</nav>
+
+<main>
+
+<!-- ============ CONTINUIDAD ============ -->
+<section class="vista on" id="v-continuidad">
+  <div class="kpis" id="kpis"></div>
+  <div class="card">
+    <h2>Continuidad por reemplazante</h2>
+    <p class="sub">Cada barra es una persona a lo largo del tiempo. Los bloques son respaldos;
+      los huecos marcados en rojo son lagunas sobre el umbral.</p>
+    <div class="filtros">
+      <label style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px">
+        Umbral de laguna
+        <select id="umbral">
+          <option value="7">7 días</option>
+          <option value="15" selected>15 días</option>
+          <option value="30">30 días</option>
+        </select>
+      </label>
+      <label style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="verAnulados"> Mostrar anulados
+      </label>
+    </div>
+    <div class="tl-wrap"><div class="tl" id="tl"></div></div>
+    <div class="leyenda" id="leyenda"></div>
+  </div>
+
+  <div class="card">
+    <h2>Un mismo respaldo repartido entre dos personas</h2>
+    <p class="sub">Detectado en los datos: la misma ausencia cubierta por más de un reemplazante.</p>
+    <div id="repartidos"></div>
+  </div>
+</section>
+
+<!-- ============ REGISTRO ============ -->
+<section class="vista" id="v-registro">
+  <div class="card">
+    <h2>Registro de respaldos</h2>
+    <p class="sub">Lo que hoy es la carpeta. Click en cualquier encabezado para reordenar —
+      por fecha de ejecución o por fecha de anotación, que es lo que el papel no permite.</p>
+    <div class="filtros">
+      <input type="search" id="busca" placeholder="Buscar titular o reemplazante…" style="min-width:230px">
+      <select id="fQuien"><option value="">Todos los reemplazantes</option></select>
+      <select id="fTipo"><option value="">Todos los tipos</option></select>
+      <select id="fEstado">
+        <option value="">Todos los estados</option>
+        <option value="Vigente">Vigente</option>
+        <option value="Anulado">Anulado</option>
+        <option value="Corregido">Corregido</option>
+        <option value="Absorbido">Absorbido</option>
+      </select>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="tabla">
+        <thead><tr>
+          <th data-o="quienNom">Reemplazante</th>
+          <th data-o="titular">Titular ausente</th>
+          <th data-o="tipo">Tipo</th>
+          <th data-o="desde">Desde</th>
+          <th data-o="hasta">Hasta</th>
+          <th data-o="dias">Días</th>
+          <th data-o="anotado">Anotado</th>
+          <th data-o="estado">Estado</th>
+          <th>Nota</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="sub" style="margin:14px 0 0" id="conteo"></p>
+  </div>
+</section>
+
+<!-- ============ ALERTAS ============ -->
+<section class="vista" id="v-alertas">
+  <div class="card">
+    <h2>Lo que el sistema detecta solo</h2>
+    <p class="sub">Revisiones que hoy dependen de acordarse. Calculadas sobre los datos cargados.</p>
+    <div id="alertas"></div>
+  </div>
+</section>
+
+<!-- ============ ALTA ============ -->
+<section class="vista" id="v-alta">
+  <div class="card">
+    <h2>Anotar un respaldo</h2>
+    <p class="sub">Los mismos campos de la hoja de papel, más lo que el papel no guarda.
+      Se anota una vez y queda consultable de todas las formas.</p>
+    <div class="form-grid">
+      <div class="campo">
+        <label>Reemplazante</label>
+        <select id="f-quien"></select>
+        <div class="hint">Quien cubre. Es el "NOMBRE" de la hoja.</div>
+      </div>
+      <div class="campo">
+        <label>Titular ausente</label>
+        <input id="f-titular" placeholder="Ej: Titular E">
+        <div class="hint">De quién es el respaldo que se ocupa.</div>
+      </div>
+      <div class="campo">
+        <label>Concepto</label>
+        <select id="f-tipo"></select>
+        <div class="hint">LM, FF, FL, ADM, días compensatorios…</div>
+      </div>
+      <div class="campo">
+        <label>Desde</label>
+        <input type="date" id="f-desde" value="2026-10-01">
+      </div>
+      <div class="campo">
+        <label>Hasta</label>
+        <input type="date" id="f-hasta" value="2026-10-05">
+        <div class="hint">Un día suelto: misma fecha en ambos.</div>
+      </div>
+      <div class="campo">
+        <label>Fecha de anotación</label>
+        <input type="date" id="f-anotado" value="2026-09-22">
+        <div class="hint">La letra chica de la hoja. Se llena sola con el día de hoy.</div>
+      </div>
+    </div>
+    <div class="prev" id="preview"></div>
+  </div>
+</section>
+
+</main>
+
+<script src="datos-muestra.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------- utilidades de fecha ----------
+  var DIA = 86400000;
+  function d(s){ var p = s.split('-'); return new Date(+p[0], +p[1]-1, +p[2], 12, 0, 0); }
+  function iso(x){ return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
+  function dias(a,b){ return Math.round((d(b)-d(a))/DIA)+1; }
+  function fmt(s){ var p=s.split('-'); return p[2]+'/'+p[1]; }
+  function fmtLargo(s){
+    var m=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    var p=s.split('-'); return +p[2]+' '+m[+p[1]-1];
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  var nombreDe = {};
+  REEMPLAZANTES.forEach(function(r){ nombreDe[r.id] = r.nombre; });
+
+  // Enriquecer los registros
+  var DATOS = RESPALDOS.map(function(r){
+    var o = Object.assign({}, r);
+    o.quienNom = nombreDe[r.quien] || r.quien;
+    o.dias = dias(r.desde, r.hasta);
+    o.vigente = r.estado !== 'Anulado';
+    return o;
+  });
+
+  // Rango temporal global
+  var todas = DATOS.reduce(function(a,r){ return a.concat([r.desde, r.hasta]); }, []);
+  var MIN = d(todas.sort()[0]);
+  var MAX = d(todas[todas.length-1]);
+  MIN = new Date(MIN.getFullYear(), MIN.getMonth(), 1, 12);
+  MAX = new Date(MAX.getFullYear(), MAX.getMonth()+1, 0, 12);
+  var TOTAL = Math.round((MAX-MIN)/DIA)+1;
+  function pct(fecha){ return (Math.round((d(fecha)-MIN)/DIA) / TOTAL) * 100; }
+
+  // ---------- navegación ----------
+  document.querySelectorAll('nav button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('nav button').forEach(function(x){ x.classList.remove('on'); });
+      document.querySelectorAll('.vista').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      document.getElementById('v'+'-'+b.dataset.v).classList.add('on');
+    });
+  });
+
+  // ---------- KPIs ----------
+  function pintarKpis(){
+    var vig = DATOS.filter(function(r){ return r.vigente; });
+    var diasTot = vig.reduce(function(a,r){ return a+r.dias; }, 0);
+    var abs  = DATOS.filter(function(r){ return r.absorbidoPor; }).length;
+    var anul = DATOS.length - vig.length - abs;
+    var k = [
+      [DATOS.length, 'respaldos anotados'],
+      [vig.length, 'vigentes'],
+      [anul, 'anulados'],
+      [abs, 'absorbidos'],
+      [diasTot, 'días de cobertura'],
+      [REEMPLAZANTES.length, 'reemplazantes']
+    ];
+    document.getElementById('kpis').innerHTML = k.map(function(x){
+      return '<div class="kpi"><div class="n">'+x[0]+'</div><div class="l">'+x[1]+'</div></div>';
+    }).join('');
+  }
+
+  // ---------- línea de continuidad ----------
+  function bloquesDe(quien, incluirAnulados){
+    return DATOS.filter(function(r){
+      return r.quien === quien && (incluirAnulados || r.vigente);
+    }).sort(function(a,b){ return d(a.desde)-d(b.desde); });
+  }
+
+  // Une períodos que se tocan o solapan → bloques continuos reales
+  function fusionar(rs){
+    var vig = rs.filter(function(r){ return r.vigente; })
+                .sort(function(a,b){ return d(a.desde)-d(b.desde); });
+    var out = [];
+    vig.forEach(function(r){
+      var ult = out[out.length-1];
+      if (ult && d(r.desde) <= new Date(d(ult.hasta).getTime()+DIA)) {
+        if (d(r.hasta) > d(ult.hasta)) ult.hasta = r.hasta;
+      } else {
+        out.push({ desde:r.desde, hasta:r.hasta });
+      }
+    });
+    return out;
+  }
+
+  function lagunasDe(quien, umbral){
+    var bloques = fusionar(DATOS.filter(function(r){ return r.quien===quien; }));
+    var out = [];
+    for (var i=1;i<bloques.length;i++){
+      var fin = d(bloques[i-1].hasta), ini = d(bloques[i].desde);
+      var hueco = Math.round((ini-fin)/DIA) - 1;
+      if (hueco >= umbral) {
+        out.push({ desde: iso(new Date(fin.getTime()+DIA)),
+                   hasta: iso(new Date(ini.getTime()-DIA)), dias: hueco });
+      }
+    }
+    return out;
+  }
+
+  function pintarTimeline(){
+    var umbral = +document.getElementById('umbral').value;
+    var verAnul = document.getElementById('verAnulados').checked;
+
+    // encabezado de meses
+    var meses = [], cur = new Date(MIN);
+    while (cur <= MAX) {
+      var fin = new Date(cur.getFullYear(), cur.getMonth()+1, 0, 12);
+      var hasta = fin > MAX ? MAX : fin;
+      meses.push({ nom: ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'][cur.getMonth()],
+                   ancho: (Math.round((hasta-cur)/DIA)+1)/TOTAL*100 });
+      cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1, 12);
+    }
+    var html = '<div class="tl-meses">' + meses.map(function(m){
+      return '<div class="tl-mes" style="width:'+m.ancho+'%">'+m.nom+'</div>';
+    }).join('') + '</div>';
+
+    REEMPLAZANTES.forEach(function(p){
+      var bl = bloquesDe(p.id, verAnul);
+      var lag = lagunasDe(p.id, umbral);
+      var diasCub = fusionar(DATOS.filter(function(r){ return r.quien===p.id; }))
+                      .reduce(function(a,b){ return a+dias(b.desde,b.hasta); }, 0);
+
+      html += '<div class="tl-fila">';
+      html += '<div class="tl-nombre">'+esc(p.nombre)+
+              '<small>'+diasCub+' días'+(p.estado!=='Activo'?' · '+esc(p.estado):'')+'</small></div>';
+      html += '<div class="tl-barra">';
+      lag.forEach(function(l){
+        html += '<div class="tl-laguna" style="left:'+pct(l.desde)+'%;width:'+
+                (l.dias/TOTAL*100)+'%"><span>'+l.dias+' d</span></div>';
+      });
+      bl.forEach(function(r){
+        var c = (TIPOS[r.tipo]||{}).color || '#999';
+        html += '<div class="tl-bloque'+(r.vigente?'':' anulado')+'" '+
+                'style="left:'+pct(r.desde)+'%;width:'+Math.max(0.5, r.dias/TOTAL*100)+'%;background:'+c+'" '+
+                'title="'+esc(r.titular)+' · '+esc((TIPOS[r.tipo]||{}).nombre||r.tipo)+
+                '\n'+fmtLargo(r.desde)+' a '+fmtLargo(r.hasta)+' ('+r.dias+' d)'+
+                '\nAnotado '+fmt(r.anotado)+' · '+esc(r.estado)+'"></div>';
+      });
+      html += '</div></div>';
+    });
+    document.getElementById('tl').innerHTML = html;
+
+    document.getElementById('leyenda').innerHTML = Object.keys(TIPOS).map(function(k){
+      return '<span><i class="sw" style="background:'+TIPOS[k].color+'"></i>'+
+             esc(TIPOS[k].nombre)+'</span>';
+    }).join('') + '<span><i class="sw" style="background:rgba(229,72,77,.15);'+
+      'border:1px dashed rgba(229,72,77,.6)"></i>Laguna sobre el umbral</span>';
+  }
+
+  document.getElementById('umbral').addEventListener('change', pintarTimeline);
+  document.getElementById('verAnulados').addEventListener('change', pintarTimeline);
+
+  // ---------- respaldos repartidos entre personas ----------
+  function pintarRepartidos(){
+    var porTitular = {};
+    DATOS.filter(function(r){ return r.vigente && r.titular !== '—'; }).forEach(function(r){
+      var k = r.titular + '|' + r.tipo;
+      (porTitular[k] = porTitular[k] || []).push(r);
+    });
+    var grupos = Object.keys(porTitular).map(function(k){ return porTitular[k]; })
+      .filter(function(g){
+        var q = {}; g.forEach(function(r){ q[r.quien]=1; });
+        return Object.keys(q).length > 1;
+      });
+
+    if (!grupos.length) {
+      document.getElementById('repartidos').innerHTML =
+        '<p class="sub" style="margin:0">Ninguno en los datos cargados.</p>';
+      return;
+    }
+    document.getElementById('repartidos').innerHTML = grupos.map(function(g){
+      g.sort(function(a,b){ return d(a.desde)-d(b.desde); });
+      var t = g[0];
+      return '<div style="border:1px solid var(--borde);border-radius:10px;padding:13px;margin-bottom:10px">'+
+        '<div style="font-weight:800;margin-bottom:8px">'+esc(t.titular)+
+        ' <span class="pill" style="background:'+((TIPOS[t.tipo]||{}).color||'#999')+'">'+
+        esc((TIPOS[t.tipo]||{}).nombre||t.tipo)+'</span></div>' +
+        g.map(function(r){
+          return '<div style="font-size:13px;padding:3px 0">→ <b>'+esc(r.quienNom)+'</b> · '+
+            fmtLargo(r.desde)+' a '+fmtLargo(r.hasta)+' <span class="badge">'+r.dias+' d</span></div>';
+        }).join('') +
+      '</div>';
+    }).join('');
+  }
+
+  // ---------- registro ----------
+  var orden = { col:'desde', asc:true };
+  function pintarTabla(){
+    var q = document.getElementById('busca').value.toLowerCase().trim();
+    var fq = document.getElementById('fQuien').value;
+    var ft = document.getElementById('fTipo').value;
+    var fe = document.getElementById('fEstado').value;
+
+    var rows = DATOS.filter(function(r){
+      if (fq && r.quien !== fq) return false;
+      if (ft && r.tipo !== ft) return false;
+      if (fe === 'Absorbido') { if (!r.absorbidoPor) return false; }
+      else if (fe && (r.estado !== fe || r.absorbidoPor)) return false;
+      if (q && (r.titular+' '+r.quienNom).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    }).sort(function(a,b){
+      var x=a[orden.col], y=b[orden.col];
+      if (x===y) return 0;
+      return (x>y?1:-1) * (orden.asc?1:-1);
+    });
+
+    document.getElementById('tbody').innerHTML = rows.map(function(r){
+      var t = TIPOS[r.tipo]||{};
+      var cls = r.estado==='Anulado' ? 'rojo' : (r.estado==='Corregido' ? 'ambar' : 'verde');
+      var etiq = r.absorbidoPor ? 'Absorbido' : r.estado;
+      return '<tr class="'+(r.estado==='Anulado'?'anulado':'')+'">'+
+        '<td><b>'+esc(r.quienNom)+'</b></td>'+
+        '<td>'+esc(r.titular)+'</td>'+
+        '<td><span class="pill" style="background:'+(t.color||'#999')+'">'+esc(r.tipo)+'</span></td>'+
+        '<td>'+fmtLargo(r.desde)+'</td>'+
+        '<td>'+fmtLargo(r.hasta)+'</td>'+
+        '<td><b>'+r.dias+'</b></td>'+
+        '<td style="color:var(--gris)">'+fmt(r.anotado)+'</td>'+
+        '<td><span class="badge '+cls+'">'+esc(etiq)+'</span></td>'+
+        '<td style="font-size:12px;color:var(--gris)">'+esc(r.nota||'')+'</td>'+
+      '</tr>';
+    }).join('');
+    document.getElementById('conteo').textContent =
+      rows.length + ' de ' + DATOS.length + ' respaldos';
+  }
+
+  document.querySelectorAll('#tabla th[data-o]').forEach(function(th){
+    th.addEventListener('click', function(){
+      var c = th.dataset.o;
+      orden = { col:c, asc: orden.col===c ? !orden.asc : true };
+      pintarTabla();
+    });
+  });
+  ['busca','fQuien','fTipo','fEstado'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', pintarTabla);
+  });
+
+  // ---------- alertas ----------
+  function pintarAlertas(){
+    var al = [];
+
+    // 1. Mismo día, misma persona, dos respaldos
+    var porPersonaDia = {};
+    DATOS.filter(function(r){ return r.vigente; }).forEach(function(r){
+      for (var x=d(r.desde); x<=d(r.hasta); x=new Date(x.getTime()+DIA)) {
+        var k = r.quien+'|'+iso(x);
+        (porPersonaDia[k] = porPersonaDia[k] || []).push(r);
+      }
+    });
+    var choques = {};
+    Object.keys(porPersonaDia).forEach(function(k){
+      if (porPersonaDia[k].length > 1) {
+        var ids = porPersonaDia[k].map(function(r){ return r.id; }).sort().join('+');
+        choques[ids] = choques[ids] || { rs: porPersonaDia[k], dias: 0 };
+        choques[ids].dias++;
+      }
+    });
+    Object.keys(choques).forEach(function(k){
+      var c = choques[k], a = c.rs[0], b = c.rs[1];
+      // ¿Uno contiene enteramente al otro, mismo titular? → es una absorción
+      // sin resolver, no un choque cualquiera. La acción es distinta.
+      var contiene = (d(a.desde) <= d(b.desde) && d(a.hasta) >= d(b.hasta)) ||
+                     (d(b.desde) <= d(a.desde) && d(b.hasta) >= d(a.hasta));
+      if (contiene && a.titular === b.titular) {
+        var mayor = (d(a.hasta)-d(a.desde)) >= (d(b.hasta)-d(b.desde)) ? a : b;
+        var menor = mayor === a ? b : a;
+        al.push({ nivel:'roja', ico:'🔁',
+          t:'Absorción sin anular — '+esc(a.quienNom),
+          p:'<b>'+esc(menor.titular)+' ('+menor.tipo+')</b> '+fmtLargo(menor.desde)+'–'+fmtLargo(menor.hasta)+
+            ' queda dentro de <b>'+esc(mayor.titular)+' ('+mayor.tipo+')</b> '+
+            fmtLargo(mayor.desde)+'–'+fmtLargo(mayor.hasta)+
+            '. El segundo ya incluye al primero, así que el primero debe anularse por absorción. '+
+            'Mientras no se anule, son '+c.dias+' día(s) pagados dos veces.' });
+      } else {
+        al.push({ nivel:'roja', ico:'⛔',
+          t:'Doble respaldo el mismo día — '+esc(a.quienNom),
+          p:'<b>'+esc(a.titular)+' ('+a.tipo+')</b> '+fmtLargo(a.desde)+'–'+fmtLargo(a.hasta)+
+            ' y <b>'+esc(b.titular)+' ('+b.tipo+')</b> '+fmtLargo(b.desde)+'–'+fmtLargo(b.hasta)+
+            ' se pisan en '+c.dias+' día(s). El pago sigue al período, así que esos días se pagarían dos veces.' });
+      }
+    });
+
+    // Absorciones ya resueltas: informativas, muestran la cadena
+    var absorbidos = DATOS.filter(function(r){ return r.absorbidoPor; });
+    absorbidos.forEach(function(r){
+      var padre = DATOS.filter(function(x){ return x.id === r.absorbidoPor; })[0];
+      if (!padre) return;
+      al.push({ nivel:'ok', ico:'🔗',
+        t:'Absorción resuelta — '+esc(r.quienNom),
+        p:'<b>'+esc(r.titular)+' ('+r.tipo+')</b> '+fmtLargo(r.desde)+'–'+fmtLargo(r.hasta)+
+          ' fue absorbido por <b>'+esc(padre.titular)+' ('+padre.tipo+')</b> '+
+          fmtLargo(padre.desde)+'–'+fmtLargo(padre.hasta)+
+          ', que ya incluye esos días. Queda anulado y trazable, sin borrarse.' });
+    });
+
+    // 2. Anotado mucho después del inicio
+    DATOS.filter(function(r){ return r.vigente; }).forEach(function(r){
+      var desfase = Math.round((d(r.desde)-d(r.anotado))/DIA);
+      if (desfase < -20) {
+        al.push({ nivel:'ambar', ico:'🕐',
+          t:'Anotado '+Math.abs(desfase)+' días después de empezar — '+esc(r.quienNom),
+          p:'<b>'+esc(r.titular)+' ('+r.tipo+')</b> del '+fmtLargo(r.desde)+', anotado el '+fmt(r.anotado)+
+            '. Registrar tarde es lo que descoloca el orden de la carpeta.' });
+      }
+    });
+
+    // 3. Lagunas
+    var umbral = +document.getElementById('umbral').value;
+    REEMPLAZANTES.forEach(function(p){
+      lagunasDe(p.id, umbral).forEach(function(l){
+        al.push({ nivel: l.dias>=30?'roja':'ambar', ico:'📉',
+          t:'Laguna de '+l.dias+' días — '+esc(p.nombre),
+          p:'Sin cobertura entre el '+fmtLargo(l.desde)+' y el '+fmtLargo(l.hasta)+
+            '. Buscar días sueltos en respaldos abiertos para dar continuidad.' });
+      });
+    });
+
+    // 4. Anulados que siguen ocupando lugar
+    var anul = DATOS.filter(function(r){ return r.estado==='Anulado'; });
+    if (anul.length) {
+      al.push({ nivel:'ambar', ico:'🗂️',
+        t:anul.length+' respaldo(s) anulado(s) en el período',
+        p:'Se conservan con su motivo y fecha, ocultos de las vistas por defecto. '+
+          'En la carpeta hay que ir a buscarlos al lugar donde se anotaron.' });
+    }
+
+    document.getElementById('alertas').innerHTML = al.length
+      ? al.map(function(a){
+          return '<div class="alerta '+a.nivel+'"><div class="ico">'+a.ico+'</div>'+
+                 '<div><b>'+a.t+'</b><p>'+a.p+'</p></div></div>'; }).join('')
+      : '<p class="sub" style="margin:0">Sin alertas.</p>';
+  }
+
+  // ---------- formulario ----------
+  function pintarPreview(){
+    var desde = document.getElementById('f-desde').value;
+    var hasta = document.getElementById('f-hasta').value;
+    var tipo  = document.getElementById('f-tipo').value;
+    var box = document.getElementById('preview');
+    if (!desde || !hasta || d(hasta) < d(desde)) {
+      box.innerHTML = '<b style="color:var(--rojo)">Revisa las fechas.</b>'; return;
+    }
+    var n = dias(desde, hasta), celdas = '';
+    for (var i=0;i<n;i++){
+      var f = new Date(d(desde).getTime()+i*DIA);
+      celdas += '<span class="prev-dia" style="background:'+((TIPOS[tipo]||{}).color||'#999')+
+                ';color:#fff">'+f.getDate()+'</span>';
+    }
+    box.innerHTML = '<b>'+n+' día(s) de cobertura</b> — el sistema crea una fila por día, '+
+      'tenga turno o no:<div style="margin-top:8px">'+celdas+'</div>'+
+      '<div style="margin-top:10px;font-size:12px;color:var(--gris)">'+
+      'Cada día queda asignable por separado, así se puede repartir entre dos reemplazantes '+
+      'o completar la laguna de alguien.</div>';
+  }
+
+  // ---------- init ----------
+  function llenarSelects(){
+    var q = REEMPLAZANTES.map(function(r){
+      return '<option value="'+r.id+'">'+esc(r.nombre)+'</option>'; }).join('');
+    document.getElementById('fQuien').innerHTML += q;
+    document.getElementById('f-quien').innerHTML = q;
+    var t = Object.keys(TIPOS).map(function(k){
+      return '<option value="'+k+'">'+esc(TIPOS[k].nombre)+'</option>'; }).join('');
+    document.getElementById('fTipo').innerHTML += t;
+    document.getElementById('f-tipo').innerHTML = t;
+  }
+
+  llenarSelects();
+  pintarKpis();
+  pintarTimeline();
+  pintarRepartidos();
+  pintarTabla();
+  pintarAlertas();
+  pintarPreview();
+  ['f-desde','f-hasta','f-tipo'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', pintarPreview);
+  });
+  document.getElementById('umbral').addEventListener('change', pintarAlertas);
+})();
+</script>
+</body>
+</html>

@@ -350,7 +350,7 @@
     </div>
     <div id="login-error" style="display:none;padding:14px;background:color-mix(in srgb,var(--rojo) 8%,#fff);border-radius:12px;border:1px solid color-mix(in srgb,var(--rojo) 22%,#fff);">
       <p style="font-size:14px;font-weight:700;color:var(--rojo);margin-bottom:6px;">Sin acceso al sistema</p>
-      <p style="font-size:13px;color:var(--texto-gris);font-weight:600;">Tu cuenta Google no está registrada en la UCI.<br>Contacta a la coordinadora.</p>
+      <p id="login-error-det" style="font-size:13px;color:var(--texto-gris);font-weight:600;">Tu cuenta Google no está registrada en la UCI.<br>Contacta a la coordinadora.</p>
     </div>
     <style>@keyframes ktspin{to{transform:rotate(360deg)}}</style>
   </div>
@@ -594,7 +594,6 @@
       <option value="FF">Feriado Fraccionado (FF) ⛅</option>
       <option value="ADM">Día Administrativo (ADM) 📝</option>
       <option value="CAMBIO_TURNO">Cambio de Turno (Trueque) 🔄</option>
-      <option value="LICENCIA_MEDICA">Licencia Médica 🩹</option>
       <option value="CAPACITACION">Capacitación 📚</option>
     </select>
 
@@ -723,6 +722,13 @@ var FERIADOS_CL = {
 // ==========================================
 // FUNCIONES DE FORMATEO Y UTILIDADES
 // ==========================================
+// Escapa texto que viene de las hojas antes de insertarlo en HTML
+// (motivos, folios, nombres — cualquier dato escrito por un usuario).
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
 function formFecha(f) {
   if (!f) return "-";
   try { var d = new Date(f); if (isNaN(d.getTime())) return "-"; return d.toLocaleDateString("es-CL", {timeZone:'UTC'}); } catch(e) { return "-"; }
@@ -792,7 +798,7 @@ window.addEventListener("load", function() {
     if (e.target === this) cerrarModalAprobar();
   });
 
-  // GAS: auto-auth via obtenerUsuarioActual() al cargar
+  // GAS: auto-auth via autoLogin() al cargar (bloque al final del archivo)
 });
 
 function checkResponsive() {
@@ -803,25 +809,6 @@ function checkResponsive() {
     document.getElementById("bottom-nav").style.display = isMobile ? "flex" : "none";
     document.getElementById("logout-card-mobile").style.display = isMobile ? "block" : "none";
   }
-}
-
-function autenticar(email) {
-  // Login manual por email (fallback). El acceso normal es automático
-  // vía la sesión de Google (ver bloque auto-auth al final).
-  if (typeof google === "undefined" || !google.script) return;
-  google.script.run
-    .withSuccessHandler(function(usuario) {
-      if (usuario && usuario.ID_Usuario) {
-        APP.usuario = usuario;
-        inicializarApp();
-      } else {
-        alert("No se encontró un usuario con ese correo.");
-      }
-    })
-    .withFailureHandler(function(err) {
-      alert("Error al iniciar sesión: " + (err && err.message ? err.message : err));
-    })
-    .buscarUsuarioPorEmail(email);
 }
 
 function inicializarApp() {
@@ -872,7 +859,13 @@ function inicializarApp() {
       document.getElementById("admin-toggle-vista").style.display = "flex";
       setModoVista(false);
     }
-  }).esAprobador(APP.usuario.ID_Usuario);
+  }).esAprobadorActual();
+
+  // Feriados desde la hoja FERIADOS (fuente única servidor/cliente).
+  // El diccionario local 2026 queda como fallback mientras carga.
+  google.script.run.withSuccessHandler(function(mapa) {
+    if (mapa && Object.keys(mapa).length) { FERIADOS_CL = mapa; actualizarMes(); }
+  }).obtenerFeriados();
 
   actualizarMes();
   calcularTurnoManana();
@@ -1064,7 +1057,7 @@ function verificarTipoSolicitud() {
       .withSuccessHandler(function(colegas) {
         var html = '<option value="">-- Selecciona un colega --</option>';
         colegas.forEach(function(c) {
-          if(c.ID_Usuario !== APP.usuario.ID_Usuario) html += `<option value="${c.ID_Usuario}">${c.Nombre} ${c.Apellido} (${c.Turno_Base})</option>`;
+          if(c.ID_Usuario !== APP.usuario.ID_Usuario) html += `<option value="${esc(c.ID_Usuario)}">${esc(c.Nombre)} ${esc(c.Apellido)} (${esc(c.Turno_Base)})</option>`;
         });
         document.getElementById("sol-reemplazo-id").innerHTML = html;
       })
@@ -1097,7 +1090,8 @@ function enviarSolicitudForm() {
     if (tipo === "CAMBIO_TURNO" && !reemplazoId) { msgDiv.style.color = "var(--rojo)"; msgDiv.innerText = "❌ Selecciona un colega."; msgDiv.style.display = "block"; return; }
 
     btn.innerText = "Enviando..."; btn.disabled = true; msgDiv.style.display = "none";
-    var datos = { idUsuario: APP.usuario.ID_Usuario, tipo: tipo, fechaInicio: inicio, fechaFin: fin, turno: turnoJornada, motivo: motivo, idReemplazo: reemplazoId };
+    // El solicitante lo determina el servidor con la sesión de Google
+    var datos = { tipo: tipo, fechaInicio: inicio, fechaFin: fin, turno: turnoJornada, motivo: motivo, idReemplazo: reemplazoId };
 
     google.script.run
       .withSuccessHandler(function(res) {
@@ -1180,15 +1174,15 @@ function cargarMisSolicitudes() {
         var color = s.Estado === 'Aprobado' ? 'var(--color-noche)' : (s.Estado === 'Rechazado' ? 'var(--rojo)' : (s.Estado === 'Pendiente Colega' ? 'var(--color-excepcion)' : 'var(--color-dia)'));
         html += `<div class="card" style="border-left: 6px solid ${color}; padding: 20px; margin-bottom: 15px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-weight:800; font-size:16px;">${s.Tipo_Sol}</span>
-            <span style="background:${color}15; color:${color}; padding:6px 14px; border-radius:14px; font-size:12px; font-weight:800;">${s.Estado}</span>
+            <span style="font-weight:800; font-size:16px;">${esc(s.Tipo_Sol)}</span>
+            <span style="background:${color}15; color:${color}; padding:6px 14px; border-radius:14px; font-size:12px; font-weight:800;">${esc(s.Estado)}</span>
           </div>
           <div style="font-size:14px; font-weight:600; margin-top:10px; color:var(--texto-gris);">Del ${formFecha(s.Fecha_Inicio)} al ${formFecha(s.Fecha_Fin)}</div>
         </div>`;
       });
       contenedor.innerHTML = html;
     })
-    .obtenerMisSolicitudes(APP.usuario.ID_Usuario);
+    .obtenerMisSolicitudes();
 }
 
 // ==========================================
@@ -1204,9 +1198,9 @@ function cargarConfirmaciones() {
     var html = "";
     lista.forEach(function(c) {
       html += `<div style="background:#fff; border-radius:16px; padding:18px; margin-bottom:12px; border:2px solid #B2EBF2;">
-        <div style="font-weight:800; font-size:16px; margin-bottom:4px;">${c.Solicitante} te pide cubrir un turno <span style="color:var(--color-noche);">${c.Turno_Ausencia}</span></div>
+        <div style="font-weight:800; font-size:16px; margin-bottom:4px;">${esc(c.Solicitante)} te pide cubrir un turno <span style="color:var(--color-noche);">${esc(c.Turno_Ausencia)}</span></div>
         <div style="font-size:14px; font-weight:700; color:var(--texto-gris); margin-bottom:8px;">📅 ${formFecha(c.Fecha_Inicio)}</div>
-        <div style="font-size:14px; font-weight:600; color:var(--texto-oscuro); margin-bottom:14px; font-style:italic;">“${c.Motivo || 'Sin mensaje'}”</div>
+        <div style="font-size:14px; font-weight:600; color:var(--texto-oscuro); margin-bottom:14px; font-style:italic;">“${esc(c.Motivo) || 'Sin mensaje'}”</div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn" style="background:var(--color-noche); color:#fff;" onclick="aceptarCambio('${c.ID_Sol}')">✓ Acepto cubrir</button>
           <button class="btn" style="background:#FFF0F3; color:var(--rojo);" onclick="rechazarCambio('${c.ID_Sol}')">✗ No puedo</button>
@@ -1214,7 +1208,7 @@ function cargarConfirmaciones() {
       </div>`;
     });
     cont.innerHTML = html;
-  }).obtenerConfirmacionesPendientes(APP.usuario.ID_Usuario);
+  }).obtenerConfirmacionesPendientes();
 }
 
 function aceptarCambio(idSol) {
@@ -1222,7 +1216,7 @@ function aceptarCambio(idSol) {
     alert(res.mensaje);
     cargarMisSolicitudes();
     actualizarBadgeConfirmaciones();
-  }).responderCambioColega(idSol, APP.usuario.ID_Usuario, true, "");
+  }).responderCambioColega(idSol, true, "");
 }
 
 function rechazarCambio(idSol) {
@@ -1231,7 +1225,7 @@ function rechazarCambio(idSol) {
     alert(res.mensaje);
     cargarMisSolicitudes();
     actualizarBadgeConfirmaciones();
-  }).responderCambioColega(idSol, APP.usuario.ID_Usuario, false, motivo);
+  }).responderCambioColega(idSol, false, motivo);
 }
 
 function actualizarBadgeConfirmaciones() {
@@ -1243,7 +1237,7 @@ function actualizarBadgeConfirmaciones() {
       if (n > 0) { el.textContent = n; el.style.display = "inline-flex"; }
       else { el.style.display = "none"; }
     });
-  }).obtenerConfirmacionesPendientes(APP.usuario.ID_Usuario);
+  }).obtenerConfirmacionesPendientes();
 }
 
 function renderCoberturaBanner(cob) {
@@ -1252,11 +1246,11 @@ function renderCoberturaBanner(cob) {
   if (cob.cubierto) {
     el.innerHTML = `<div style="background:#E8F9F6; border:2px solid #A7E8E0; border-radius:16px; padding:16px;">
       <div style="font-weight:800; color:var(--color-noche);">✓ Turno cubierto</div>
-      <div style="font-weight:600; color:#54618f; font-size:14px; margin-top:4px;">La cobertura queda asegurada por <strong>${cob.reemplazante}</strong>. Sin descobertura para el equipo.</div></div>`;
+      <div style="font-weight:600; color:#54618f; font-size:14px; margin-top:4px;">La cobertura queda asegurada por <strong>${esc(cob.reemplazante)}</strong>. Sin descobertura para el equipo.</div></div>`;
     return;
   }
   if (cob.nota) {
-    el.innerHTML = `<div style="background:var(--color-fondo); border:2px solid var(--borde-suave); border-radius:16px; padding:16px; font-weight:600; color:#54618f; font-size:14px;">ℹ️ ${cob.nota}</div>`;
+    el.innerHTML = `<div style="background:var(--color-fondo); border:2px solid var(--borde-suave); border-radius:16px; padding:16px; font-weight:600; color:#54618f; font-size:14px;">ℹ️ ${esc(cob.nota)}</div>`;
     return;
   }
   if (!cob.dias || cob.dias.length === 0) {
@@ -1292,7 +1286,7 @@ function abrirModalLicencia() {
   document.getElementById("lic-obs").value = "";
   google.script.run.withSuccessHandler(function(kines) {
     var html = '<option value="">-- Selecciona profesional --</option>';
-    kines.forEach(function(k) { html += `<option value="${k.ID_Usuario}">${k.Nombre} ${k.Apellido} (${k.Turno_Base})</option>`; });
+    kines.forEach(function(k) { html += `<option value="${esc(k.ID_Usuario)}">${esc(k.Nombre)} ${esc(k.Apellido)} (${esc(k.Turno_Base)})</option>`; });
     document.getElementById("lic-usuario").innerHTML = html;
   }).obtenerListaKines();
 }
@@ -1335,11 +1329,11 @@ function cargarLicencias() {
             ? `<span style="background:#FFF0F3; color:var(--rojo); padding:4px 10px; border-radius:10px; font-size:12px; font-weight:800;">${l.Abiertas} abierta(s)</span>`
             : `<span style="background:#E8F9F6; color:var(--color-noche); padding:4px 10px; border-radius:10px; font-size:12px; font-weight:800;">✓ ${l.Vacantes} cubierta(s)</span>`);
         html += `<tr>
-          <td style="font-weight:800;">${l.Profesional}<br><span style="font-weight:600; font-size:12px; color:var(--texto-gris);">${l.Tipo}</span></td>
-          <td style="font-weight:700;">${l.Equipo}</td>
+          <td style="font-weight:800;">${esc(l.Profesional)}<br><span style="font-weight:600; font-size:12px; color:var(--texto-gris);">${esc(l.Tipo)}</span></td>
+          <td style="font-weight:700;">${esc(l.Equipo)}</td>
           <td style="font-weight:700;">${formFecha(l.Fecha_Inicio)} - ${formFecha(l.Fecha_Fin)}</td>
-          <td style="font-size:13px; font-weight:700;">${l.Folio || '-'}</td>
-          <td style="font-weight:800;">${l.Dias}</td>
+          <td style="font-size:13px; font-weight:700;">${esc(l.Folio) || '-'}</td>
+          <td style="font-weight:800;">${esc(l.Dias)}</td>
           <td>${vacTxt}</td>
         </tr>`;
       });
@@ -1360,15 +1354,15 @@ function cargarVacantes() {
       vacs.forEach(function(v) {
         if (v.Estado === 'Cubierta') {
           html += `<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#E8F9F6; border:2px solid #A7E8E0; border-radius:16px; padding:14px 18px; margin-bottom:10px; flex-wrap:wrap;">
-            <div><div style="font-weight:800;">${formFechaCorta(v.Fecha)} · ${v.Turno} <span style="color:var(--texto-gris); font-weight:700;">(Eq ${v.Equipo})</span></div><div style="font-size:13px; font-weight:600; color:var(--texto-gris);">Ausente: ${v.Ausente}</div></div>
-            <span style="background:var(--color-noche); color:#fff; padding:6px 14px; border-radius:12px; font-size:13px; font-weight:800; white-space:nowrap;">✓ Cubre: ${v.Cobertura}</span></div>`;
+            <div><div style="font-weight:800;">${formFechaCorta(v.Fecha)} · ${esc(v.Turno)} <span style="color:var(--texto-gris); font-weight:700;">(Eq ${esc(v.Equipo)})</span></div><div style="font-size:13px; font-weight:600; color:var(--texto-gris);">Ausente: ${esc(v.Ausente)}</div></div>
+            <span style="background:var(--color-noche); color:#fff; padding:6px 14px; border-radius:12px; font-size:13px; font-weight:800; white-space:nowrap;">✓ Cubre: ${esc(v.Cobertura)}</span></div>`;
         } else {
-          var sel = '<select id="cov-' + v.ID_Vac + '" style="padding:9px; border-radius:10px; border:2px solid var(--borde-suave); font-family:Plus Jakarta Sans,sans-serif; font-weight:600; outline:none;"><option value="">-- Asignar colega --</option>';
-          kines.forEach(function(k) { if (k.ID_Usuario !== v.ID_Ausente) sel += `<option value="${k.ID_Usuario}">${k.Nombre} ${k.Apellido}</option>`; });
+          var sel = '<select id="cov-' + esc(v.ID_Vac) + '" style="padding:9px; border-radius:10px; border:2px solid var(--borde-suave); font-family:Plus Jakarta Sans,sans-serif; font-weight:600; outline:none;"><option value="">-- Asignar colega --</option>';
+          kines.forEach(function(k) { if (k.ID_Usuario !== v.ID_Ausente) sel += `<option value="${esc(k.ID_Usuario)}">${esc(k.Nombre)} ${esc(k.Apellido)}</option>`; });
           sel += '</select>';
           html += `<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#FFF0F3; border:2px solid #FFC2D1; border-radius:16px; padding:14px 18px; margin-bottom:10px; flex-wrap:wrap;">
-            <div><div style="font-weight:800;">🔴 ${formFechaCorta(v.Fecha)} · ${v.Turno} <span style="color:var(--texto-gris); font-weight:700;">(Eq ${v.Equipo})</span></div><div style="font-size:13px; font-weight:600; color:var(--texto-gris);">Ausente: ${v.Ausente}</div></div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">${sel}<button class="btn" style="background:var(--azul-boton); color:#fff; padding:9px 14px;" onclick="asignarCobertura('${v.ID_Vac}')">Asignar</button></div></div>`;
+            <div><div style="font-weight:800;">🔴 ${formFechaCorta(v.Fecha)} · ${esc(v.Turno)} <span style="color:var(--texto-gris); font-weight:700;">(Eq ${esc(v.Equipo)})</span></div><div style="font-size:13px; font-weight:600; color:var(--texto-gris);">Ausente: ${esc(v.Ausente)}</div></div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">${sel}<button class="btn" style="background:var(--azul-boton); color:#fff; padding:9px 14px;" onclick="asignarCobertura('${esc(v.ID_Vac)}')">Asignar</button></div></div>`;
         }
       });
       cont.innerHTML = html;
@@ -1394,9 +1388,9 @@ function cargarGestionTurnos() {
         var bg = d.Tipo === 'TURNO_EXTRA' ? 'var(--azul-boton)' : 'var(--color-dia)';
         html += `<tr>
           <td style="font-weight:800;">${formFechaCorta(d.Fecha_Inicio)}</td>
-          <td style="font-weight:800;">${d.Kinesiologo}</td>
-          <td><span style="background:${bg}; color:white; padding:6px 12px; border-radius:12px; font-size:12px; font-weight:800;">${d.Tipo}</span></td>
-          <td style="color:var(--texto-gris); font-size:14px; font-weight:600;">${d.Detalle}</td>
+          <td style="font-weight:800;">${esc(d.Kinesiologo)}</td>
+          <td><span style="background:${bg}; color:white; padding:6px 12px; border-radius:12px; font-size:12px; font-weight:800;">${esc(d.Tipo)}</span></td>
+          <td style="color:var(--texto-gris); font-size:14px; font-weight:600;">${esc(d.Detalle)}</td>
         </tr>`;
       });
       document.getElementById("tabla-gestion").innerHTML = html + `</tbody></table>`;
@@ -1425,19 +1419,19 @@ function cargarAdmin() {
       var html = `<table><thead><tr> <th>ID</th> <th>Kinesiólogo</th> <th>Tipo</th> <th>Fechas</th> <th style="text-align:center;">Acción</th> </tr></thead><tbody>`;
       solicitudes.forEach(function(s) {
         html += `<tr>
-          <td style="font-weight:800; font-size:13px; color:var(--texto-gris);">${s.ID_Sol}</td>
-          <td style="font-weight:800;">${s.Solicitante}<br><span style="font-weight:600; font-size:13px; color:var(--texto-gris);">${s.Motivo || ''}</span>${s.Cubierto ? `<br><span style="display:inline-block; margin-top:6px; background:#E0F7FA; color:var(--color-noche); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">↔ Cubierto</span>` : (s.Riesgo ? `<br><span style="display:inline-block; margin-top:6px; background:#FFF0F3; color:var(--rojo); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">⚠️ Riesgo cobertura</span>` : `<br><span style="display:inline-block; margin-top:6px; background:#E8F9F6; color:var(--color-noche); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">✓ Cobertura OK</span>`)}</td>
-          <td><span style="background:var(--color-blanco); padding:6px 12px; border-radius:12px; font-size:12px; font-weight:800; color:var(--texto-oscuro); border:2px solid var(--borde-suave);">${s.Tipo_Sol}</span></td>
+          <td style="font-weight:800; font-size:13px; color:var(--texto-gris);">${esc(s.ID_Sol)}</td>
+          <td style="font-weight:800;">${esc(s.Solicitante)}<br><span style="font-weight:600; font-size:13px; color:var(--texto-gris);">${esc(s.Motivo) || ''}</span>${s.Cubierto ? `<br><span style="display:inline-block; margin-top:6px; background:#E0F7FA; color:var(--color-noche); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">↔ Cubierto</span>` : (s.Riesgo ? `<br><span style="display:inline-block; margin-top:6px; background:#FFF0F3; color:var(--rojo); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">⚠️ Riesgo cobertura</span>` : `<br><span style="display:inline-block; margin-top:6px; background:#E8F9F6; color:var(--color-noche); padding:3px 9px; border-radius:9px; font-size:11px; font-weight:800;">✓ Cobertura OK</span>`)}</td>
+          <td><span style="background:var(--color-blanco); padding:6px 12px; border-radius:12px; font-size:12px; font-weight:800; color:var(--texto-oscuro); border:2px solid var(--borde-suave);">${esc(s.Tipo_Sol)}</span></td>
           <td style="font-size:14px; font-weight:700;">${formFecha(s.Fecha_Inicio)} - ${formFecha(s.Fecha_Fin)}</td>
           <td style="text-align:center; white-space:nowrap;">
-            <button onclick="accionarSolicitud('${s.ID_Sol}', 'aprobar')" class="btn" style="background:var(--color-noche); color:white; padding:8px 14px; font-size:14px;">✓</button>
-            <button onclick="accionarSolicitud('${s.ID_Sol}', 'rechazar')" class="btn" style="background:var(--rojo); color:white; padding:8px 14px; font-size:14px; margin-left:6px;">✗</button>
+            <button onclick="accionarSolicitud('${esc(s.ID_Sol)}', 'aprobar')" class="btn" style="background:var(--color-noche); color:white; padding:8px 14px; font-size:14px;">✓</button>
+            <button onclick="accionarSolicitud('${esc(s.ID_Sol)}', 'rechazar')" class="btn" style="background:var(--rojo); color:white; padding:8px 14px; font-size:14px; margin-left:6px;">✗</button>
           </td>
         </tr>`;
       });
       document.getElementById("tabla-admin").innerHTML = html + `</tbody></table>`;
     })
-    .obtenerSolicitudesAdmin(APP.usuario.ID_Usuario);
+    .obtenerSolicitudesAdmin();
 }
 
 function accionarSolicitud(idSol, accion) {
@@ -1462,8 +1456,8 @@ function accionarSolicitud(idSol, accion) {
       if(!res || !res.turnosPerdidos || res.turnosPerdidos.length === 0) { dest.innerHTML = ''; return; }
       var html = '<p style="margin:6px 0 12px; font-weight:800; color:var(--texto-oscuro);">Confirma quién cubre el turno:</p>';
       res.turnosPerdidos.forEach(function(t) {
-        html += `<div style="background:var(--color-fondo); padding:12px; border-radius:16px; margin-bottom:8px; font-weight:700;">📅 ${t.fechaVisual} (${t.tipo}) <select class="select-reemplazo" data-fecha="${t.fechaStr}" data-tipo="${t.tipo}" style="width:100%; padding:10px; margin-top:8px; border-radius:12px; border:2px solid var(--borde-suave); font-family:'Plus Jakarta Sans', sans-serif; font-weight:600; outline:none;">`;
-        t.sugerencias.forEach(function(s) { html += `<option value="${s.id}" selected>${s.nombre}</option>`; });
+        html += `<div style="background:var(--color-fondo); padding:12px; border-radius:16px; margin-bottom:8px; font-weight:700;">📅 ${esc(t.fechaVisual)} (${esc(t.tipo)}) <select class="select-reemplazo" data-fecha="${esc(t.fechaStr)}" data-tipo="${esc(t.tipo)}" style="width:100%; padding:10px; margin-top:8px; border-radius:12px; border:2px solid var(--borde-suave); font-family:'Plus Jakarta Sans', sans-serif; font-weight:600; outline:none;">`;
+        t.sugerencias.forEach(function(s) { html += `<option value="${esc(s.id)}" selected>${esc(s.nombre)}</option>`; });
         html += `</select></div>`;
       });
       dest.innerHTML = html;
@@ -1486,10 +1480,10 @@ function confirmarAprobacion() {
       assigns.push({ fecha: sel.getAttribute("data-fecha"), tipo: sel.getAttribute("data-tipo"), idReemplazo: sel.value });
     });
     google.script.run.withSuccessHandler(function(res){ btn.disabled = false; cerrarModalAprobar(); alert(res.mensaje); cargarAdmin(); })
-      .aprobarSolicitudMulti(solicitudPendienteId, APP.usuario.ID_Usuario, nota, assigns);
+      .aprobarSolicitudMulti(solicitudPendienteId, nota, assigns);
   } else {
     google.script.run.withSuccessHandler(function(res){ btn.disabled = false; cerrarModalAprobar(); alert(res.mensaje); cargarAdmin(); })
-      .rechazarSolicitud(solicitudPendienteId, APP.usuario.ID_Usuario, nota);
+      .rechazarSolicitud(solicitudPendienteId, nota);
   }
 }
 
@@ -1532,7 +1526,7 @@ function renderPlanilla(data){
   h1+='</tr>'; h2+='</tr>';
   var body='';
   data.filas.forEach(function(f){
-    var tr='<tr class="pl-row'+(f.finBloque?' fin':'')+'"><td class="pl-nm">'+f.etiqueta+'</td>';
+    var tr='<tr class="pl-row'+(f.finBloque?' fin':'')+'"><td class="pl-nm">'+esc(f.etiqueta)+'</td>';
     for(var i=0;i<f.celdas.length;i++){
       var c=f.celdas[i];
       if(c.tipo==='lm'||c.tipo==='permiso'){
@@ -1566,7 +1560,7 @@ function cargarReporte(){
 function _rptTabla(clase, rows, vacio){
   if(!rows||!rows.length) return '<p class="rpt-empty">'+vacio+'</p>';
   var html='<table class="rpt-table '+clase+'"><thead><tr><td class="rpt-nm">Funcionario</td><td class="rpt-items">'+(clase==='cambios'?'Cambio':(clase==='extras'?'Turno':'Turnos asignados'))+'</td></tr></thead><tbody>';
-  rows.forEach(function(r){ html+='<tr><td class="rpt-nm">'+r.nombre+'</td><td class="rpt-items"><ul>'+r.items.map(function(i){return'<li>'+i+'</li>';}).join('')+'</ul></td></tr>'; });
+  rows.forEach(function(r){ html+='<tr><td class="rpt-nm">'+esc(r.nombre)+'</td><td class="rpt-items"><ul>'+r.items.map(function(i){return'<li>'+esc(i)+'</li>';}).join('')+'</ul></td></tr>'; });
   return html+'</tbody></table>';
 }
 function renderReporte(data){
@@ -1670,22 +1664,33 @@ function renderReporte(data){
 
 <script>
 // ===== AUTO-AUTH GAS =====
+// La identidad la resuelve el servidor con la sesión de Google.
+// Si falla, mostramos QUÉ cuenta se detectó para poder diagnosticar.
 window.addEventListener('load', function() {
   google.script.run
-    .withSuccessHandler(function(usuario) {
-      if (usuario && usuario.ID_Usuario) {
-        APP.usuario = usuario;
+    .withSuccessHandler(function(res) {
+      if (res && res.ok && res.usuario) {
+        APP.usuario = res.usuario;
         document.getElementById('pantalla-login').style.display = 'none';
         inicializarApp();
+        return;
+      }
+      document.getElementById('login-loading').style.display = 'none';
+      document.getElementById('login-error').style.display = 'block';
+      var det = document.getElementById('login-error-det');
+      if (res && res.motivo === 'SIN_SESION') {
+        det.innerHTML = 'No se pudo detectar tu cuenta de Google.<br>' +
+          'Revisa que la implementación de la web app tenga acceso ' +
+          '"Cualquier usuario con cuenta de Google" y abre la URL que termina en <b>/exec</b>.';
       } else {
-        document.getElementById('login-loading').style.display = 'none';
-        document.getElementById('login-error').style.display = 'block';
+        det.innerHTML = 'La cuenta <b>' + esc(res && res.email || 'detectada') + '</b> no está registrada como usuario activo de la UCI.<br>' +
+          'Contacta a la coordinadora (o ejecuta <b>corregirAcceso()</b> en Apps Script si eres el administrador).';
       }
     })
     .withFailureHandler(function(e) {
       document.getElementById('login-status-txt').textContent = 'Error de conexión. Recarga la página.';
     })
-    .obtenerUsuarioActual();
+    .autoLogin();
 });
 </script>
 </body>
